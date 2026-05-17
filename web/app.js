@@ -2069,6 +2069,53 @@ async function attachImageUrls(items) {
   renderImageChips();
 }
 
+// Attach a locally-selected file (from Browse or drag-drop). PDFs get
+// uploaded to the server first so /document/prepare can extract real
+// PDF text via PyPDF. Plain-text formats (txt/csv/json/md) are read
+// client-side and injected as preText (cheap, no server hop).
+async function attachLocalFileAsDoc(file) {
+  const name  = file.name || "file";
+  const lower = name.toLowerCase();
+  const isPdf = file.type.includes("pdf") || /\.pdf$/i.test(lower);
+
+  if (isPdf) {
+    // Stage 1: upload to server. Server saves to session uploads dir.
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/upload-file", { method: "POST", body: fd });
+    if (!r.ok) {
+      console.warn("[doc attach] upload failed:", r.status);
+      return;
+    }
+    const meta = await r.json();
+    // Stage 2: route through normal document RAG path. /document/prepare
+    // falls back to session uploads dir (see serve.py change).
+    await attachDocuments([{ name: meta.id, title: name, url: meta.url }]);
+    return;
+  }
+
+  // Text-ish formats: read client-side and inject directly as preText.
+  if (/\.(txt|csv|json|md|log|tsv|xml|yml|yaml)$/i.test(lower) ||
+      file.type.startsWith("text/") ||
+      file.type === "application/json") {
+    const text = await file.text().catch(() => "");
+    if (!text) return;
+    pendingDocuments.push({
+      name, title: name,
+      url:     URL.createObjectURL(file),
+      status:  "ready",
+      doc_id:  null,
+      chunks:  1,
+      preText: text.slice(0, 12000),
+    });
+    renderImageChips();
+    return;
+  }
+
+  // Unknown binary type — refuse rather than send garbage to the model
+  console.warn("[doc attach] unsupported file type:", file.type, name);
+}
+
 // Attach an artifact (HTML saved response or uploaded non-image file) as
 // a pre-fetched context block. Fetches the content client-side, strips
 // tags if HTML, and injects the text directly at send time — no server
@@ -2274,12 +2321,15 @@ composer.addEventListener("drop", async (e) => {
     }
   }
 
-  const files = Array.from(e.dataTransfer.files || []).filter(
-    (f) => f.type.startsWith("image/") || /\.(heic|heif|avif)$/i.test(f.name)
-  );
-  if (files.length) {
-    await attachImageFiles(files);
-    return;
+  const allFiles = Array.from(e.dataTransfer.files || []);
+  if (allFiles.length) {
+    const images = allFiles.filter(
+      (f) => f.type.startsWith("image/") || /\.(heic|heif|avif)$/i.test(f.name)
+    );
+    const docs = allFiles.filter((f) => !images.includes(f));
+    if (images.length) await attachImageFiles(images);
+    for (const d of docs) await attachLocalFileAsDoc(d);
+    if (allFiles.length) return;
   }
 
   const uris = (e.dataTransfer.getData("text/uri-list") || "")
@@ -2303,21 +2353,7 @@ window.addEventListener("te:attach-files", async (e) => {
   const docs   = files.filter((f) => !images.includes(f));
   if (images.length) await attachImageFiles(images);
   for (const d of docs) {
-    // Read non-image files as text client-side (avoids server-side lookup
-    // that would fail for blob: URLs — the file hasn't been uploaded yet).
-    const text = await d.text().catch(() => "");
-    if (!text) continue;
-    const placeholder = {
-      name:    d.name,
-      title:   d.name,
-      url:     URL.createObjectURL(d),
-      status:  "ready",
-      doc_id:  null,
-      chunks:  1,
-      preText: text.slice(0, 12000),
-    };
-    pendingDocuments.push(placeholder);
-    renderImageChips();
+    await attachLocalFileAsDoc(d);
   }
 });
 
