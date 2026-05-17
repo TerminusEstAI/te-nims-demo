@@ -21,7 +21,70 @@ const TYPE_LABELS = {
 let _refreshTimer = null;
 let _lastFingerprint = "";
 
-function $(id) { return document.getElementById(id); }
+// ── Client-side upload artifacts ────────────────────────────────────────
+// Files dropped into the composer or pulled from the mobile QR upload
+// endpoint are not in any ARTIFACT_DIRS scanned by the server, so we
+// track them here on the client. Persisted to sessionStorage so they
+// survive tab reloads within the same browser session.
+const UPLOAD_STORAGE_KEY = "te-fob-upload-artifacts";
+let _uploadArtifacts = [];
+try {
+  const raw = sessionStorage.getItem(UPLOAD_STORAGE_KEY);
+  if (raw) _uploadArtifacts = JSON.parse(raw) || [];
+} catch (e) {
+  console.warn("[artifacts] failed to restore upload artifacts:", e);
+  _uploadArtifacts = [];
+}
+
+function _persistUploads() {
+  try {
+    // Object URLs (blob:…) don't survive a reload; strip them when persisting.
+    const safe = _uploadArtifacts.map(u => ({
+      ...u,
+      url: u.url && u.url.startsWith("blob:") ? null : u.url,
+    })).filter(u => u.url);   // drop entries with no durable URL
+    sessionStorage.setItem(UPLOAD_STORAGE_KEY, JSON.stringify(safe));
+  } catch (e) {
+    /* sessionStorage full / disabled — non-fatal */
+  }
+}
+
+/**
+ * Register an uploaded file as an artifact so it shows in the Artifacts tab.
+ *
+ * @param {object} meta
+ * @param {string} meta.name  filename
+ * @param {string} meta.url   /session-upload/<name>, /artifacts/<id>, or blob: URL
+ * @param {string} [meta.mime]  MIME type (image/png, application/pdf, …)
+ * @param {number} [meta.size]  file size in bytes
+ * @param {string} [meta.source]  "drag-drop" | "browse" | "mobile" | "paste"
+ */
+export function addUploadArtifact(meta) {
+  if (!meta || !meta.name || !meta.url) {
+    throw new Error("addUploadArtifact requires {name, url}");
+  }
+  // Dedupe by (name, url) — same file dragged twice shouldn't double-count.
+  const dupe = _uploadArtifacts.find(u => u.name === meta.name && u.url === meta.url);
+  if (dupe) return dupe.id;
+
+  const id = `upload-client:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const entry = {
+    id,
+    type: "upload",
+    name: meta.name,
+    url:  meta.url,
+    mime: meta.mime || "application/octet-stream",
+    size: meta.size || 0,
+    mtime: Date.now() / 1000,
+    source: meta.source || "client",
+    _clientUpload: true,
+  };
+  _uploadArtifacts.unshift(entry);
+  _persistUploads();
+  // Force re-render so the new thumb appears immediately.
+  refresh({ force: true }).catch((e) => console.warn("[artifacts] refresh:", e));
+  return id;
+}
 
 async function fetchArtifacts() {
   const res = await fetch("/artifacts", { cache: "no-store" });
@@ -50,7 +113,11 @@ function makeThumb(item) {
   card.setAttribute("aria-label", `${item.type}: ${item.name}`);
   card.draggable = true;
 
-  const url = `/artifacts/${encodeURIComponent(item.id)}`;
+  // Client-side uploads carry their own URL (/session-upload/<name> or blob:);
+  // server-scanned artifacts route via /artifacts/<id>.
+  const url = item._clientUpload ? item.url : `/artifacts/${encodeURIComponent(item.id)}`;
+  const isImage = (item.mime || "").startsWith("image/") ||
+                  /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(item.name || "");
 
   if (item.type === "doc") {
     // Document artifact — show an icon + title instead of an image thumbnail
@@ -61,6 +128,16 @@ function makeThumb(item) {
     titleEl.className = "artifact-doc-title";
     // Strip leading timestamp and extension for a cleaner display label
     titleEl.textContent = item.name.replace(/^\d+-/, "").replace(/\.html$/, "").replace(/-/g, " ");
+    card.appendChild(icon);
+    card.appendChild(titleEl);
+  } else if (item._clientUpload && !isImage) {
+    // Non-image upload (PDF, csv, txt, …) — show a file icon + name + download link
+    const icon = document.createElement("div");
+    icon.className = "artifact-doc-icon";
+    icon.textContent = "📎";
+    const titleEl = document.createElement("div");
+    titleEl.className = "artifact-doc-title";
+    titleEl.textContent = item.name;
     card.appendChild(icon);
     card.appendChild(titleEl);
   } else {
@@ -90,7 +167,7 @@ function makeThumb(item) {
 
   card.appendChild(label);
 
-  card.addEventListener("click", () => openModal(item));
+  card.addEventListener("click", () => openModal(item, { url, isImage }));
   card.addEventListener("dragstart", (ev) => {
     if (!ev.dataTransfer) return;
     const absUrl = new URL(url, window.location.href).href;
@@ -107,16 +184,26 @@ function makeThumb(item) {
   return card;
 }
 
-function openModal(item) {
+function openModal(item, opts = {}) {
+  const itemUrl = opts.url || (item._clientUpload ? item.url : `/artifacts/${encodeURIComponent(item.id)}`);
+  const itemIsImage = opts.isImage !== undefined
+    ? opts.isImage
+    : (item.mime || "").startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(item.name || "");
+
   if (item.type === "doc") {
-    window.open(`/artifacts/${encodeURIComponent(item.id)}`, "_blank", "noopener,noreferrer");
+    window.open(itemUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+  // Non-image uploads — open in a new tab so the browser handles PDF/text/etc.
+  if (item._clientUpload && !itemIsImage) {
+    window.open(itemUrl, "_blank", "noopener,noreferrer");
     return;
   }
   const modal   = $("artifact-modal");
   const img     = $("artifact-modal-img");
   const caption = $("artifact-modal-caption");
   if (!modal || !img || !caption) return;
-  img.src = `/artifacts/${encodeURIComponent(item.id)}`;
+  img.src = itemUrl;
   img.alt = item.name;
   caption.textContent = `${TYPE_LABELS[item.type] || item.type} · ${item.name} · ${relativeTime(item.mtime)} · ${formatBytes(item.size)}`;
   modal.hidden = false;
@@ -156,9 +243,16 @@ async function refresh({ force = false } = {}) {
     payload = await fetchArtifacts();
   } catch (err) {
     console.warn("[artifacts] fetch failed:", err);
-    return;
+    payload = { items: [] };
   }
-  const items = payload.items || [];
+  // Merge server-scanned artifacts with client-side upload artifacts.
+  // Server's `upload` entries (mobile uploads written to severian-uploads/)
+  // dedupe against client entries by basename to avoid double-listing.
+  const serverItems = payload.items || [];
+  const serverNames = new Set(serverItems.filter(s => s.type === "upload").map(s => s.name));
+  const clientItems = _uploadArtifacts.filter(c => !serverNames.has(c.name));
+  const items = [...clientItems, ...serverItems]
+    .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
   const fp = fingerprint(items);
   if (!force && fp === _lastFingerprint) return;   // nothing new
   _lastFingerprint = fp;

@@ -124,6 +124,7 @@ def _resolve_library_dir() -> Path:
         Path(__file__).parent / "library" / "pdfs",
         Path(__file__).parent.parent / "severian-ollama" / "library" / "pdfs",
         Path(__file__).resolve().parents[2] / "DEMOS" / "severian-ollama" / "library" / "pdfs",
+        Path.home() / "AI" / "TERMINUSEST-AI" / "DEMOS" / "severian-ollama" / "library" / "pdfs",
     ]
     for c in candidates:
         if c.is_dir() and any(c.glob("*.pdf")):
@@ -1679,6 +1680,11 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
                 Path("data/chunks.db"),
                 Path.home() / ".severian" / "chunks.db",
                 Path(__file__).parent.parent / "severian-ollama" / "chunks.db",
+                _repo / "python" / "packages" / "te-formalize" / "store" / "chunks.db",
+                # chunks.db is untracked — only in main checkout, not worktrees
+                Path.home() / "AI" / "TERMINUSEST-AI" / "python" / "packages" / "te-formalize" / "store" / "chunks.db",
+                Path.home() / "AI" / "TERMINUSEST-AI" / "DIVISIONS" / "NIMS" / "SEVERIAN" / "DOCTRINE" / "NIMS" / "chunks.db",
+                Path(__file__).parent.parent / "severian-ollama" / "chunks.db",
             ]
             for c in candidates:
                 if c.is_file():
@@ -2681,6 +2687,178 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(payload)
 
     # ── Signing identity (per-deployment key) ────────────────────────
+    def _serve_upload_mobile(self) -> None:
+        """GET /upload-mobile?s=<session-id>
+        Serves a minimal mobile-optimised HTML upload page that posts a file
+        to /upload-file with the session cookie pre-filled via query param.
+        """
+        from urllib.parse import urlparse, parse_qs  # noqa: PLC0415
+        qs  = parse_qs(urlparse(self.path).query)
+        sid = (qs.get("s", [""])[0]).strip()
+        cookie_js = f'document.cookie="svs_session={sid};path=/;max-age=14400";' if sid else ""
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TE NIMS Upload</title>
+  <style>
+    *{{box-sizing:border-box;margin:0;padding:0}}
+    body{{background:#0d0d0e;color:#e8e8e8;font-family:ui-monospace,monospace;
+         display:flex;flex-direction:column;align-items:center;padding:24px 16px;min-height:100vh}}
+    h1{{color:#e8551a;font-size:22px;margin-bottom:8px}}
+    p{{color:#888;font-size:12px;margin-bottom:24px;text-align:center}}
+    .btn{{display:block;width:100%;max-width:360px;background:#e8551a;border:none;
+          border-radius:6px;color:#fff;cursor:pointer;font-size:16px;font-weight:700;
+          padding:16px;margin:8px 0;text-align:center}}
+    .btn-ghost{{background:transparent;border:2px solid #2a2a2c;color:#888}}
+    input[type=file]{{display:none}}
+    #status{{margin-top:20px;font-size:12px;color:#4caf50;text-align:center}}
+    #error{{margin-top:12px;font-size:12px;color:#e74c3c;text-align:center}}
+  </style>
+</head>
+<body>
+  <h1>TE NIMS</h1>
+  <p>Upload a photo or file to the active incident session.</p>
+  <label class="btn" for="camera">📷 Take Photo</label>
+  <input id="camera" type="file" accept="image/*" capture="environment">
+  <label class="btn btn-ghost" for="gallery">🖼 Choose from Gallery / Files</label>
+  <input id="gallery" type="file" accept="image/*,application/pdf,.json,.txt,.csv" multiple>
+  <div id="status"></div>
+  <div id="error"></div>
+  <script>
+    {cookie_js}
+    async function upload(files) {{
+      const status = document.getElementById("status");
+      const err    = document.getElementById("error");
+      for (const f of files) {{
+        status.textContent = "Uploading " + f.name + "…";
+        const fd = new FormData(); fd.append("file", f);
+        const r = await fetch("/upload-file", {{method:"POST",body:fd}}).catch(e=>{{err.textContent=e.message;return null}});
+        if (!r || !r.ok) {{ err.textContent = "Upload failed"; continue; }}
+        status.textContent = "✓ " + f.name + " uploaded successfully!";
+      }}
+    }}
+    document.getElementById("camera").addEventListener("change",  e => upload(e.target.files));
+    document.getElementById("gallery").addEventListener("change", e => upload(e.target.files));
+  </script>
+</body>
+</html>""".encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(html)))
+        self.end_headers()
+        self.wfile.write(html)
+
+    def _handle_upload_file(self) -> None:
+        """POST /upload-file — multipart file upload from the mobile QR page.
+        Saves to a session-scoped uploads dir so the desktop app can poll and
+        attach the file to the chat. Returns {"ok": true, "id": "<name>", "url": "..."}.
+        """
+        import json as _json  # noqa: PLC0415
+        import re as _re      # noqa: PLC0415
+        import email          # noqa: PLC0415
+        ct = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in ct:
+            self.send_error(400, "expected multipart/form-data")
+            return
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        if length > 50 * 1024 * 1024:      # 50 MB cap
+            self.send_error(413, "file too large (max 50 MB)")
+            return
+        raw = self.rfile.read(length)
+        # Extract boundary
+        boundary = None
+        for part in ct.split(";"):
+            part = part.strip()
+            if part.startswith("boundary="):
+                boundary = part[9:].strip('"')
+                break
+        if not boundary:
+            self.send_error(400, "missing boundary")
+            return
+        # Parse multipart body manually (avoid cgi.FieldStorage deprecation)
+        filename = "upload.bin"
+        file_bytes = b""
+        sep = ("--" + boundary).encode()
+        parts = raw.split(sep)
+        for block in parts:
+            if b"Content-Disposition" not in block:
+                continue
+            if b'\r\n\r\n' not in block:
+                continue
+            hdr_raw, body = block.split(b'\r\n\r\n', 1)
+            body = body.rstrip(b'\r\n--')
+            hdr_text = hdr_raw.decode("utf-8", errors="replace")
+            m = _re.search(r'filename="([^"]+)"', hdr_text)
+            if m:
+                filename = m.group(1)
+                file_bytes = body
+                break
+        if not file_bytes:
+            self.send_error(400, "no file data found")
+            return
+        safe_name = _re.sub(r"[^\w.\-]", "_", Path(filename).name)[:120]
+        uploads_dir = _chat_log_dir() / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        dest = uploads_dir / safe_name
+        dest.write_bytes(file_bytes)
+        url = f"/session-upload/{safe_name}"
+        out = _json.dumps({"ok": True, "id": safe_name, "url": url, "size": len(file_bytes)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(out)
+
+    def _poll_uploads(self) -> None:
+        """GET /uploads — returns list of files recently uploaded via /upload-file.
+        Desktop app polls this to show 'N new photos from mobile' notification.
+        """
+        import json as _json  # noqa: PLC0415
+        uploads_dir = _chat_log_dir() / "uploads"
+        files = []
+        if uploads_dir.is_dir():
+            for f in sorted(uploads_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
+                if f.is_file():
+                    files.append({
+                        "id":   f.name,
+                        "url":  f"/session-upload/{f.name}",
+                        "size": f.stat().st_size,
+                        "mtime": f.stat().st_mtime,
+                    })
+        out = _json.dumps({"files": files}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(out)
+
+    def _serve_session_upload(self, name: str) -> None:
+        """GET /session-upload/<name> — serve an uploaded file back to the browser."""
+        import mimetypes as _mt  # noqa: PLC0415
+        uploads_dir = _chat_log_dir() / "uploads"
+        path = (uploads_dir / name).resolve()
+        try:
+            path.relative_to(uploads_dir.resolve())
+        except ValueError:
+            self.send_error(403, "forbidden")
+            return
+        if not path.is_file():
+            self.send_error(404, "not found")
+            return
+        mime = _mt.guess_type(name)[0] or "application/octet-stream"
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
     def _serve_signing_key(self) -> None:
         """GET /signing-key → {"key_id": "...", "scheme": "HMAC-SHA256",
         "key": "<base64-or-string>", "loaded_from": "<path|default>"}.
@@ -2769,6 +2947,13 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             "--file", str(_chain_log_path()),
         ])
 
+    def do_OPTIONS(self) -> None:  # noqa: N802 — CORS preflight for mobile Safari
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_POST(self) -> None:  # noqa: N802
         self._init_session()
         # POST /vpo/sign  → forward to vpo-server for Ed25519 signing
@@ -2842,6 +3027,10 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         # POST /artifacts/save — save HTML doc artifact
         if self.path.startswith("/artifacts/save"):
             self._save_doc_artifact()
+            return
+        # POST /upload-file — multipart file upload from mobile QR page
+        if self.path == "/upload-file" or self.path.startswith("/upload-file?"):
+            self._handle_upload_file()
             return
         # POST /api/ollama/<path> → Ollama proxy (avoids browser CORS)
         if self.path.startswith("/api/ollama/"):
@@ -2931,6 +3120,19 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         # Match /signing-key (per-deployment signing identity descriptor)
         if self.path == "/signing-key" or self.path.startswith("/signing-key?"):
             self._serve_signing_key()
+            return
+        # GET /upload-mobile — mobile QR-code upload page
+        if self.path == "/upload-mobile" or self.path.startswith("/upload-mobile?"):
+            self._serve_upload_mobile()
+            return
+        # GET /uploads — poll for files uploaded from mobile
+        if self.path == "/uploads" or self.path.startswith("/uploads?"):
+            self._poll_uploads()
+            return
+        # GET /session-upload/<name> — serve an uploaded file
+        if self.path.startswith("/session-upload/"):
+            name = self.path.removeprefix("/session-upload/").split("?")[0]
+            self._serve_session_upload(name)
             return
         # Match /chat-log/<turn-id>.json (verification fetch)
         if self.path.startswith("/chat-log/"):

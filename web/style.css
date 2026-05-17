@@ -2019,3 +2019,39 @@ footer {
 .te-welcome-actions .te-welcome-cta { flex: 1; margin-top: 0; }
 .te-welcome-skip { background: transparent !important; border: 1px solid var(--te-border, #2a2a2c) !important; color: var(--te-dim, #888) !important; }
 .te-welcome-skip:hover { border-color: var(--te-dim, #888) !important; color: var(--te-white, #fff) !important; opacity: 1 !important; }
+
+/* ── Tour note callout ────────────────────────────────────────────────── */
+.te-tour-note {
+  display: block;
+  background: rgba(232, 85, 26, 0.1);
+  border-left: 3px solid var(--te-orange, #e8551a);
+  border-radius: 2px;
+  color: var(--te-white, #e8e8e8);
+  font-size: 10px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  padding: 5px 8px;
+}
+
+/* ── Upload panel ─────────────────────────────────────────────────────── */
+.upload-panel { display: flex; flex-direction: column; gap: 14px; padding: 4px; }
+.upload-intro, .upload-hint { color: var(--te-dim); font-size: 11px; line-height: 1.5; }
+.upload-hint { font-style: italic; }
+.upload-qr-container {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--te-bg-3); border: 1px solid var(--te-border);
+  border-radius: 6px; padding: 16px;
+}
+.upload-qr-url { font-size: 9px; color: var(--te-dim); word-break: break-all; text-align: center; max-width: 200px; }
+.upload-divider {
+  display: flex; align-items: center; gap: 8px; color: var(--te-dim); font-size: 10px;
+}
+.upload-divider::before, .upload-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--te-border);
+}
+.upload-browse-btn {
+  background: var(--te-orange); border: none; border-radius: 4px; color: #fff;
+  cursor: pointer; font: inherit; font-size: 12px; font-weight: 700;
+  padding: 10px 16px; transition: opacity 0.12s; width: 100%;
+}
+.upload-browse-btn:hover { opacity: 0.85; }

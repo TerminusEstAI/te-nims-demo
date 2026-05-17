@@ -13,9 +13,10 @@ import { initMap, addPin, getMap, zoomTo,
 import { initFormsPanel }      from "./form.js";
 import { initChainPanel, classifyKey, getLastBlockHash } from "./chain.js";
 import { initVoice, speak, stopSpeaking } from "./voice.js";
-import { openArtifactUrl, refreshArtifacts } from "./artifacts.js";
+import { openArtifactUrl, refreshArtifacts, addUploadArtifact } from "./artifacts.js";
 import * as persist                     from "./persistence.js";
 import { startTour, advanceTour, isTourActive, resetTour } from "./tour.js";
+import { initUploadPanel } from "./upload.js";
 // Leaflet (global L) is loaded via <script> in index.html before this module.
 
 // Inline configuration. Tighten as needed.
@@ -63,7 +64,9 @@ function ollamaCandidates() {
 function visionEndpoint() {
   const params = new URLSearchParams(window.location.search);
   const v = params.get("vision");
-  return v ? v.replace(/\/+$/, "") : null;
+  if (v) return v.replace(/\/+$/, "");
+  // Fall back to Ollama proxy — severian-vision supports multimodal natively
+  return window.location.origin + "/api/ollama";
 }
 
 // Canonical ICS forms — built into the system prompt so the model has
@@ -803,11 +806,8 @@ async function initEngine() {
   }
 
   ollamaBase = found.base;
-  setStatus("up",
-    `${found.model} · ${found.family} · ${found.parameter_size} · ${found.quantization} · ${found.base}`
-  );
-  footerStat.textContent =
-    `⎇ ${found.model} (${found.size_gb}GB) · ${found.base} · offline`;
+  setStatus("up", `${found.model} · Gemma 4 · ${found.base}`);
+  footerStat.textContent = `⎇ ${found.model} · Gemma 4 · offline`;
   chatMeta.textContent = "ready";
   const micBtn = $("mic"), ttsBtn = $("tts");
   if (micBtn && (window.SpeechRecognition || window.webkitSpeechRecognition)) micBtn.disabled = false;
@@ -834,7 +834,7 @@ async function initEngine() {
           `<span style="opacity:.55">${c.detail}</span>`
         ).join("<br>")
       : `    ${dotHtml("ok")} <span style="color:var(--te-white)">severian-ollama   </span>` +
-        `<span style="opacity:.55">${found.model} (${found.parameter_size})</span>`;
+        `<span style="opacity:.55">${found.model} · Gemma 4</span>`;
 
     const model = statusData?.model ?? `TE NIMS`;
 
@@ -1090,9 +1090,6 @@ async function signChatTurn(question, response, signer = "severian-agent", prevH
 function buildChatRequest(conversation, hasImages) {
   if (hasImages) {
     const visionUrl = visionEndpoint();
-    if (!visionUrl) {
-      return { error: "Image attached but no vision endpoint configured. Launch with ?vision=<url> or restart the FOB launcher to start the vision tunnel." };
-    }
     // Translate Ollama-style messages into OpenAI multimodal format.
     const oaiMessages = conversation.map((m) => {
       if (Array.isArray(m.images) && m.images.length) {
@@ -1346,8 +1343,8 @@ async function sendQuery(question, images = [], documents = []) {
       return;
     }
     ollamaBase = found.base;
-    setStatus("up", `${found.model} · ${found.base}`);
-    footerStat.textContent = `⎇ ${found.model} (${found.size_gb}GB) · ${found.base} · offline`;
+    setStatus("up", `${found.model} · Gemma 4 · ${found.base}`);
+    footerStat.textContent = `⎇ ${found.model} · Gemma 4 · offline`;
     chatMeta.textContent = "ready";
   }
   appendUserMsg(question, images, documents);
@@ -1969,6 +1966,20 @@ async function attachImageFiles(files) {
     try {
       const img = await readImageFile(file);
       pendingImages.push(img);
+      // Also surface the file in the Artifacts tab. Use the data URL we
+      // already produced for the chat composer — survives reload via the
+      // artifact's own sessionStorage persistence.
+      try {
+        addUploadArtifact({
+          name: file.name || img.name || "pasted-image",
+          url:  img.dataUrl,
+          mime: file.type || img.mime,
+          size: file.size || 0,
+          source: "drag-drop",
+        });
+      } catch (e) {
+        console.warn("[image attach] artifact register failed:", e);
+      }
     } catch (e) {
       console.warn("[image attach] skipped:", e.message);
     }
@@ -2223,6 +2234,9 @@ initFormsPanel();
 
 // ── Boot the VPO chain panel ────────────────────────────────────────
 initChainPanel();
+
+// ── Boot the Upload panel ────────────────────────────────────────────
+initUploadPanel();
 
 // ── Tab switcher (ICS Form ↔ VPO Chain ↔ Artifacts) ─────────────────
 //

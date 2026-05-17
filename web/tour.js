@@ -28,13 +28,14 @@ const STEPS = [
   },
   {
     n: 4,
-    body: "TE NIMS can generate the data for ICS forms on demand. In the live version these forms can be saved live to the ICS Form Directory.",
+    body: "<span class='te-tour-note'>🔊 Note — You should hear the voice agent in a few seconds. To turn it off click the speaker icon at the bottom right.</span>TE NIMS can generate the data for ICS forms on demand. In the live version these forms can be saved live to the ICS Form Directory.",
     query: "Generate an ICS-201 Incident Briefing for this incident.",
   },
   {
     n: 5,
     body: "TE NIMS can save any chat response as a standalone HTML artifact. Run /save to capture the previous answer — it appears in the Artifacts tab.",
     query: "/save",
+    tab: "artifacts",
   },
   {
     n: 6,
@@ -60,6 +61,12 @@ const STEPS = [
     n: 10,
     body: "Now the Incident Commander needs to know their location so he can plan the operation.",
     query: "Show me Moore Fire Station 1.",
+  },
+  {
+    n: 11,
+    body: "The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.",
+    informational: true,
+    tab: "library",
   },
 ];
 
@@ -257,9 +264,10 @@ function _renderFinalCard() {
       <button class="te-tour-close" type="button" aria-label="Close">✕</button>
     </div>
     <div class="te-tour-float-body">
-      Every decision was signed and chain-verified.
-      Click <strong>▸ VPO Chain</strong> to see the cryptographic provenance chain,
-      or <strong>▸ ICS Form</strong> to view the generated ICS-201.
+      Every chat message is documented with a cryptographic provenance chain to ensure auditability.
+      Click <strong>▸ VPO Chain</strong> to see the entire chain. This is critical for documentation
+      and auditability of disaster management incidents and can be used to recreate or document
+      entire operational turns.
     </div>
     <div class="te-tour-float-actions">
       <button class="te-tour-try te-tour-done" type="button">Got it</button>

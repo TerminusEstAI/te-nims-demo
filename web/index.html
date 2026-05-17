@@ -79,6 +79,7 @@
           <button class="tab"        role="tab" data-tab="artifacts" aria-selected="false">▸ Artifacts</button>
           <button class="tab"        role="tab" data-tab="library"   aria-selected="false">▸ Library</button>
           <button class="tab"        role="tab" data-tab="data"      aria-selected="false">▸ Data</button>
+          <button class="tab"        role="tab" data-tab="upload"    aria-selected="false">▸ Upload</button>
         </div>
         <span class="panel-meta" id="tab-meta-display"></span>
       </header>
@@ -156,6 +157,21 @@
           Source: 114 federal datasets via Odin bronze layer · Pre-filtered to OKC/Moore demo area · Served from gold Parquets bundled in Docker image
         </div>
         <span class="hidden-meta" id="data-meta">7 layers</span>
+      </div>
+
+      <!-- Upload tab -->
+      <div class="panel-body tab-pane" id="tab-upload">
+        <div class="upload-panel">
+          <p class="upload-intro">Scan with a phone to add field photos or documents to the chat. On desktop, drag files directly into the chat or use Browse. Uploads are visible in the Artifacts tab.</p>
+          <div id="upload-qr-container" class="upload-qr-container">
+            <canvas id="upload-qr-canvas"></canvas>
+            <div class="upload-qr-url" id="upload-qr-url"></div>
+          </div>
+          <div class="upload-divider"><span>or on desktop</span></div>
+          <button id="upload-browse-btn" class="upload-browse-btn" type="button">📎 Browse &amp; attach to chat</button>
+          <p class="upload-hint">Files attach to the chat — drag &amp; drop into the chat panel also works.</p>
+        </div>
+        <span class="hidden-meta" id="upload-meta">ready</span>
       </div>
     </section>
 
