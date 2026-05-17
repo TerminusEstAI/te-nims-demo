@@ -29,7 +29,7 @@ const STEPS = [
   {
     n: 4,
     body: "<span class='te-tour-note'>🔊 Note — You should hear the voice agent in a few seconds. To turn it off click the speaker icon at the bottom right.</span>TE NIMS can generate the data for ICS forms on demand. In the live version these forms can be saved live to the ICS Form Directory.",
-    query: "Generate an ICS-201 Incident Briefing for this incident.",
+    query: "Generate an initial ICS-201 Incident Briefing for this incident.",
     preSubmit: () => {
       const ttsBtn = document.getElementById("tts");
       if (ttsBtn && ttsBtn.classList.contains("active")) ttsBtn.click();
