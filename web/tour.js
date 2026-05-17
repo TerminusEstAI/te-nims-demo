@@ -45,6 +45,11 @@ const STEPS = [
   },
   {
     n: 7,
+    body: "TE NIMS can use GEMMA's multimodal capabilities to leverage its doctrinal knowledge.",
+    query: "Create a doctrinally correct version of the diagram.",
+  },
+  {
+    n: 8,
     body: "TE NIMS can save any chat response as a standalone HTML artifact. Run /save to capture the previous answer — it appears in the Artifacts tab.",
     query: "/save",
     tab: "artifacts",
