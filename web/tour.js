@@ -42,6 +42,7 @@ const STEPS = [
     body: "Drag and drop the image into the chat area for analysis.",
     query: "redraw this in Ascii.",
     tab: "artifacts",
+    waitForImage: true,
   },
   {
     n: 7,
@@ -185,6 +186,11 @@ function _removeModal() {
 
 function _setModalContent(html) {
   const m = _getOrCreateModal();
+  // Clean up any image-wait listener from the previous step
+  if (typeof m._tourImageCleanup === "function") {
+    m._tourImageCleanup();
+    delete m._tourImageCleanup;
+  }
   m.innerHTML = html;
   // Animate in
   m.style.opacity = "0";
@@ -236,6 +242,8 @@ function _renderStep(step) {
     ? ""
     : `<div class="te-tour-float-query">"${step.query.replace(/"/g, '&quot;')}"</div>`;
   const actionLabel = step.informational ? "Next Step →" : "→ Try this query";
+  // waitForImage steps start disabled until the user drags an image in
+  const needsImage = !!step.waitForImage;
 
   const m = _setModalContent(`
     <div class="te-tour-float-header">
@@ -246,14 +254,30 @@ function _renderStep(step) {
     <div class="te-tour-float-body">${step.body}</div>
     ${queryHtml}
     <div class="te-tour-float-actions">
-      <button class="te-tour-try" type="button">${actionLabel}</button>
+      <button class="te-tour-try" type="button"
+        ${needsImage ? 'disabled title="Drag an image into the chat first"' : ""}>
+        ${needsImage ? "📎 Attach image first…" : actionLabel}
+      </button>
       <a class="te-tour-skip" href="#">Skip tour</a>
     </div>
   `);
 
+  // If this step waits for an image, wire up the enable/disable listener
+  if (needsImage) {
+    const tryBtn = m.querySelector(".te-tour-try");
+    const _onImages = (e) => {
+      const hasImage = (e.detail?.count || 0) > 0;
+      tryBtn.disabled = !hasImage;
+      tryBtn.textContent = hasImage ? actionLabel : "📎 Attach image first…";
+    };
+    window.addEventListener("te:pending-images-changed", _onImages);
+    // Clean up listener when the modal is replaced or dismissed
+    const _cleanup = () => window.removeEventListener("te:pending-images-changed", _onImages);
+    m._tourImageCleanup = _cleanup;
+  }
+
   m.querySelector(".te-tour-try").addEventListener("click", () => {
     if (step.informational) {
-      // No query to send — just advance the tour
       advanceTour();
       return;
     }

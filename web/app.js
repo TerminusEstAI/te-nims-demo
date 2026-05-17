@@ -1952,6 +1952,11 @@ const pendingImages = [];   // { name, mime, dataUrl, base64 }
 const pendingDocuments = [];   // { name, title, doc_id, url, status }
 
 function renderImageChips() {
+  // Notify tour (and any other listener) when attached image count changes.
+  window.dispatchEvent(new CustomEvent("te:pending-images-changed", {
+    detail: { count: pendingImages.length },
+  }));
+
   let bar = document.getElementById("image-chips");
   const hasAny = pendingImages.length > 0 || pendingDocuments.length > 0;
   if (!hasAny) {
