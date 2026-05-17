@@ -86,6 +86,14 @@ const STEPS = [
     body: "Now the Incident Commander needs to know their location so he can plan the operation.",
     query: "Show me Moore Fire Station 1.",
   },
+  {
+    n: 15,
+    body: "Thank you for checking out TE NIMS. We built it out of need after 40 years of disaster management — we know that AI will save lives!",
+    informational: true,
+    dedication: "This project is dedicated to the brave first responders we have had the honor to work with over the decades.",
+    buttonLabel: "End Tutorial",
+    endTour: true,
+  },
 ];
 
 const TOTAL = STEPS.length;
@@ -241,7 +249,10 @@ function _renderStep(step) {
   const queryHtml = step.informational
     ? ""
     : `<div class="te-tour-float-query">"${step.query.replace(/"/g, '&quot;')}"</div>`;
-  const actionLabel = step.informational ? "Next Step →" : "→ Try this query";
+  const dedicationHtml = step.dedication
+    ? `<div class="te-tour-dedication">${step.dedication}</div>`
+    : "";
+  const actionLabel = step.buttonLabel || (step.informational ? "Next Step →" : "→ Try this query");
   // waitForImage steps start disabled until the user drags an image in
   const needsImage = !!step.waitForImage;
 
@@ -253,12 +264,13 @@ function _renderStep(step) {
     </div>
     <div class="te-tour-float-body">${step.body}</div>
     ${queryHtml}
+    ${dedicationHtml}
     <div class="te-tour-float-actions">
       <button class="te-tour-try" type="button"
         ${needsImage ? 'disabled title="Drag an image into the chat first"' : ""}>
         ${needsImage ? "📎 Attach image first…" : actionLabel}
       </button>
-      <a class="te-tour-skip" href="#">Skip tour</a>
+      ${step.endTour ? "" : `<a class="te-tour-skip" href="#">Skip tour</a>`}
     </div>
   `);
 
@@ -277,6 +289,10 @@ function _renderStep(step) {
   }
 
   m.querySelector(".te-tour-try").addEventListener("click", () => {
+    if (step.endTour) {
+      _dismiss();
+      return;
+    }
     if (step.informational) {
       advanceTour();
       return;
@@ -289,7 +305,7 @@ function _renderStep(step) {
   });
 
   m.querySelector(".te-tour-close").addEventListener("click", () => _dismiss());
-  m.querySelector(".te-tour-skip").addEventListener("click", (ev) => {
+  m.querySelector(".te-tour-skip")?.addEventListener("click", (ev) => {
     ev.preventDefault();
     _dismiss();
   });

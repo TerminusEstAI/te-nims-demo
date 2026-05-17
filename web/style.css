@@ -1994,6 +1994,16 @@ footer {
   border-left: 2px solid var(--te-border, #2a2a2c);
   padding-left: 8px;
 }
+.te-tour-dedication {
+  color: var(--te-orange);
+  font-size: 10px;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--te-border, #2a2a2c);
+}
 .te-tour-float-actions {
   display: flex;
   align-items: center;
