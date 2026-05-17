@@ -1,0 +1,32 @@
+services:
+  te-nims:
+    build: .
+    image: terminusestai/te-nims-demo:latest
+    container_name: te-nims-demo
+    ports:
+      - "8765:8765"     # Web UI — open http://localhost:8765
+      - "11434:11434"   # Ollama API (optional direct access)
+    volumes:
+      - te-nims-models:/models          # 5GB GGUF cached across rebuilds
+      - ollama-cache:/root/.ollama      # Ollama model registry
+      - te-nims-voices:/root/.severian  # Piper TTS voice files
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 14G       # 5.3GB model + Ollama overhead + Python
+        reservations:
+          memory: 8G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8765/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  te-nims-models:    # Persists the 5GB GGUF — never re-downloads after first run
+  ollama-cache:      # Ollama internal model registry
+  te-nims-voices:    # Piper TTS voice (60MB)

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Data at runtime
+web/data/
+web/data/chat-log/
+web/data/chain.jsonl
+web/data/document-cache/
+/tmp/severian-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Docker
+.docker/
+
+# Secrets (should never be here, but belt-and-suspenders)
+.env
+.env.*
+*.key
+*.pem
+*.p12
+secrets/

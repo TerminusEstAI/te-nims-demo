@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TE NIMS · FOB</title>
+  <meta name="theme-color"            content="#e8551a">
+  <meta name="apple-mobile-web-app-capable"            content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style"   content="black-translucent">
+  <meta name="apple-mobile-web-app-title"              content="TE NIMS">
+  <meta name="mobile-web-app-capable"                  content="yes">
+  <link rel="manifest"      href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon"          href="icon-192.png" sizes="192x192">
+  <link rel="stylesheet" href="style.css">
+  <!-- Leaflet for the live incident map (OSM raster tiles for POC; FOB
+       deployment swaps to local MBTiles for offline). -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+</head>
+<body>
+
+  <!-- ── Header: TE NIMS branded title + status row ─────────────────── -->
+  <header>
+    <h1>
+      <span class="brand-t">T</span><span class="brand-e">E</span><span class="brand-rest"> NIMS</span>
+    </h1>
+    <div class="banner">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">connecting…</span>
+      <button id="tour-btn" class="tour-btn" title="Start a guided walkthrough of key features">▶ Demo Walkthrough</button>
+    </div>
+  </header>
+
+  <!-- ── Common Operating Picture: chat (full L) | map (top-R) + tabs (bot-R) ─ -->
+  <main class="cop">
+
+    <!-- LEFT — chat panel spans full height -->
+    <section class="panel" id="panel-chat">
+      <header class="panel-head">
+        <span class="panel-title">▸ Chat</span>
+        <span class="panel-meta" id="chat-meta">idle</span>
+      </header>
+      <div class="panel-body" id="chat-area" aria-live="polite">
+      </div>
+    </section>
+
+    <!-- TOP-RIGHT — live incident map -->
+    <section class="panel" id="panel-map">
+      <header class="panel-head">
+        <span class="panel-title">▸ Map</span>
+        <span class="panel-meta" id="map-meta">no scenario</span>
+      </header>
+      <div class="panel-body" id="map-body" style="padding: 0;">
+        <div id="map-placeholder" class="map-placeholder">
+          No scenario loaded — type <code>/demo</code> to begin
+        </div>
+        <div id="map"></div>
+        <button class="map-btn map-btn-overlay active" id="map-tiles"     title="Toggle base map tiles"         hidden>⬛ Map</button>
+<button class="map-btn map-btn-overlay" id="map-track"      title="Toggle tornado track"          hidden>⬛ Track</button>
+        <button class="map-btn map-btn-overlay" id="map-buildings"  title="Toggle building footprints"    hidden>⬛ Buildings</button>
+        <div id="map-legend" hidden>
+          <div class="legend-title">Legend</div>
+          <div class="legend-row"><span class="legend-swatch legend-track"></span> Tornado Track</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#e74c3c"></span> Destroyed</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#e8551a"></span> Major Damage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#f1c40f"></span> Minor Damage</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTTOM-RIGHT — tabbed panel: ICS Form | VPO Chain | Artifacts -->
+    <section class="panel" id="panel-tabs">
+      <header class="panel-head panel-head-tabs">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" data-tab="form"      aria-selected="true">▸ ICS Form</button>
+          <button class="tab"        role="tab" data-tab="chain"     aria-selected="false">▸ VPO Chain</button>
+          <button class="tab"        role="tab" data-tab="artifacts" aria-selected="false">▸ Artifacts</button>
+          <button class="tab"        role="tab" data-tab="library"   aria-selected="false">▸ Library</button>
+          <button class="tab"        role="tab" data-tab="data"      aria-selected="false">▸ Data</button>
+        </div>
+        <span class="panel-meta" id="tab-meta-display"></span>
+      </header>
+
+      <!-- ICS form tab -->
+      <div class="panel-body tab-pane active" id="tab-form">
+        <div class="ics-search-bar">
+          <input type="search" id="ics-search" placeholder="Filter forms…" autocomplete="off" spellcheck="false">
+          <span id="ics-forms-meta" class="ics-forms-meta"></span>
+        </div>
+        <div id="ics-forms-list" class="ics-forms-list"></div>
+        <span class="hidden-meta" id="form-meta">ICS-201 · unsigned</span>
+      </div>
+
+      <!-- VPO chain tab -->
+      <div class="panel-body tab-pane" id="tab-chain">
+        <!-- Signing-key classification banner. Populated by chain.js based
+             on the active signing identity (server-loaded). -->
+        <div id="chain-key-banner" class="chain-key-banner" hidden></div>
+        <div id="chain-empty" class="chain-empty">
+          No signed decisions yet. Sign an ICS-201 form (left tab) to add the first block.
+        </div>
+        <ol id="chain-list" class="chain-list" hidden></ol>
+        <span class="hidden-meta" id="chain-meta">0 blocks</span>
+      </div>
+
+      <!-- Artifacts tab — every chart, map, and uploaded image generated this session -->
+      <div class="panel-body tab-pane" id="tab-artifacts">
+        <div id="artifacts-empty" class="chain-empty">
+          No artifacts yet. Ask the agent to plot, map, or generate something.
+        </div>
+        <div id="artifacts-grid" class="artifacts-grid" hidden></div>
+        <span class="hidden-meta" id="artifacts-meta">0 artifacts</span>
+      </div>
+
+      <!-- Library tab — read-only NIMS doctrine PDF corpus. Filterable
+           list grouped by category (NIMS, NRF, ESF, ICS Forms, …). Click
+           any title to open the PDF in a new browser window. -->
+      <div class="panel-body tab-pane" id="tab-library">
+        <div class="library-header">
+          <input type="search" id="library-search" placeholder="Filter doctrine titles…" autocomplete="off">
+        </div>
+        <div id="library-empty" class="chain-empty" hidden>
+          No PDFs in the library directory.
+        </div>
+        <div id="library-list" class="library-list"></div>
+        <span class="hidden-meta" id="library-meta">0 docs</span>
+      </div>
+
+      <!-- Data tab — Odin gold infrastructure data overview for the OKC/Moore
+           demo area. Static display with optional live-fetch update. -->
+      <div class="panel-body tab-pane" id="tab-data">
+        <div class="data-header">
+          <div class="data-title">Odin Gold · OKC/Moore Metro</div>
+          <div class="data-subtitle" id="data-subtitle">2,463 records · 7 layers · built 2026-05-12</div>
+          <div class="data-coverage">35.0–35.65°N, 97.0–97.85°W · Oklahoma, Cleveland, Canadian, Grady, Logan, McClain counties</div>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="data-layer-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Layer</th>
+                <th>Description</th>
+                <th>Records</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="data-layer-tbody">
+              <!-- populated by data_tab.js -->
+            </tbody>
+          </table>
+        </div>
+        <div class="data-footer">
+          Source: 114 federal datasets via Odin bronze layer · Pre-filtered to OKC/Moore demo area · Served from gold Parquets bundled in Docker image
+        </div>
+        <span class="hidden-meta" id="data-meta">7 layers</span>
+      </div>
+    </section>
+
+    <!-- Artifacts modal — bordered, bounded panel with pop-out + close.
+         The .artifact-modal backdrop fills the viewport; the .artifact-
+         modal-frame inside is sized down so the image is windowed, not
+         full-bleed. Click the backdrop or × to close, ↗ to pop the image
+         into a new browser window for a full-screen view. -->
+    <div id="artifact-modal" class="artifact-modal" hidden role="dialog" aria-modal="true">
+      <div class="artifact-modal-frame">
+        <div class="artifact-modal-actions">
+          <button class="artifact-modal-popout" id="artifact-modal-popout" aria-label="Open in new window" title="Open in new window">↗</button>
+          <button class="artifact-modal-close"  id="artifact-modal-close"  aria-label="Close">×</button>
+        </div>
+        <img class="artifact-modal-img" id="artifact-modal-img" alt="">
+        <div class="artifact-modal-caption" id="artifact-modal-caption"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Mobile bottom navigation (hidden on desktop) ─────────────────── -->
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Main navigation">
+    <button class="mobile-nav-btn active" data-mobile-tab="chat">
+      <span class="mobile-nav-icon">💬</span>
+      <span class="mobile-nav-label">Chat</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="map">
+      <span class="mobile-nav-icon">🗺</span>
+      <span class="mobile-nav-label">Map</span>
+    </button>
+    <button class="mobile-nav-btn" data-mobile-tab="tabs">
+      <span class="mobile-nav-icon">📋</span>
+      <span class="mobile-nav-label">Forms &amp; Data</span>
+    </button>
+  </nav>
+
+  <!-- ── PDF modal — opens ICS form PDFs in-app ───────────────────────── -->
+  <div id="pdf-modal" class="pdf-modal" hidden role="dialog" aria-modal="true">
+    <div class="pdf-modal-frame">
+      <div class="pdf-modal-toolbar">
+        <span class="pdf-modal-title" id="pdf-modal-title"></span>
+        <div class="pdf-modal-actions">
+          <button class="pdf-modal-save" id="pdf-modal-save" type="button" title="Save a versioned copy to the thumbdrive">Save</button>
+          <button class="pdf-modal-close" id="pdf-modal-close" aria-label="Close">×</button>
+        </div>
+      </div>
+      <iframe class="pdf-modal-iframe" id="pdf-modal-iframe" title="PDF viewer"></iframe>
+    </div>
+  </div>
+
+  <!-- ── Composer: query input + voice toggle ──────────────────────── -->
+  <form id="composer" autocomplete="off">
+    <button type="button" id="mic"  class="btn btn-ghost"   title="Push-to-talk (hold to speak)" disabled>🎙</button>
+    <input  type="text"   id="prompt" placeholder="Ask a NIMS / ICS question…">
+    <button type="button" id="tts"  class="btn btn-ghost"   title="Speak responses" disabled>🔊</button>
+    <button type="submit" id="send" class="btn btn-primary">Send</button>
+  </form>
+
+  <!-- ── Bottom orange status bar (matches CLI prompt_toolkit toolbar) ─ -->
+  <footer>
+    <span id="footer-status">⎇ severian-fob-web · WebLLM · Llama-3.2-1B-Instruct (POC)</span>
+  </footer>
+
+
+  <script type="module" src="app.js"></script>
+  <script type="module" src="artifacts.js"></script>
+  <script type="module" src="library.js"></script>
+  <script type="module" src="data_tab.js"></script>
+  <script>
+    // Register the service worker so the page works fully offline after first load.
+    // ALSO force an update check on every page load — without this, the browser only
+    // checks for SW updates once per 24h, and code edits sit invisible behind a
+    // stale cached app.js. With the network-first strategy in sw.js this is belt-
+    // and-suspenders so updates land instantly.
+    // Service worker disabled for cloud deployment — SW caches CSP headers
+    // and blocks CDN resources. Unregister any lingering SW from prior visits.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+      // Disabled: navigator.serviceWorker.register("/sw.js")
+      // If a new SW takes control while the page is open, reload so the page
+      // picks up the new app.js. Guard against rapid reload loops: only reload
+      // if the last SW-triggered reload was >10s ago (handles the case where
+      // a fresh SW installs immediately after a reload without looping).
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        const last = parseInt(sessionStorage.getItem("te-sw-reloaded") || "0", 10);
+        if (Date.now() - last < 10000) return;
+        sessionStorage.setItem("te-sw-reloaded", String(Date.now()));
+        window.location.reload();
+      });
+    }
+  </script>
+</body>
+</html>

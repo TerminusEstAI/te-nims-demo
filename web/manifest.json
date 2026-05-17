@@ -1,0 +1,27 @@
+{
+  "name": "TE NIMS · FOB",
+  "short_name": "TE NIMS",
+  "description": "Verified decision support for incident commanders. Severian Stage 5 + offline OKC imagery + ICS-201 forms + VPO chain.",
+  "start_url": "/?ollama=http://100.105.4.57:11434",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d0d0e",
+  "theme_color": "#e8551a",
+  "lang": "en-US",
+  "scope": "/",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

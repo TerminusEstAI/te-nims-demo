@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+docs/
+web/data/chat-log/
+web/data/chain.jsonl
+web/data/document-cache/
+__pycache__
+*.pyc
+.DS_Store
+.env

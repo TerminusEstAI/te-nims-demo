@@ -1,0 +1,14 @@
+# TE NIMS Demo — Python dependencies for serve.py
+# Install: pip install -r requirements.txt
+
+# HTTP client (Ollama proxy + RAG fetch)
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# Piper TTS (offline British male voice)
+piper-tts>=1.2.0
+
+# Mem0 session memory (requires Qdrant + Ollama)
+mem0ai>=0.1.0
+qdrant-client>=1.7.0
+ollama>=0.1.0

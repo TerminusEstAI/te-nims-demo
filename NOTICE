@@ -1,0 +1,58 @@
+TE NIMS Demo
+Copyright 2026 Terminus Est AI, Inc.
+
+This product includes software and data from the following sources:
+
+-------------------------------------------------------------------------------
+Google Gemma 4 E4B
+  Copyright 2025 Google LLC
+  Licensed under the Gemma Terms of Use
+  https://ai.google.dev/gemma/terms
+  Base model: google/gemma-4-E4B-it (HuggingFace)
+
+-------------------------------------------------------------------------------
+FEMA National Incident Management System (NIMS) Doctrine
+  Source: U.S. Department of Homeland Security / FEMA
+  https://www.fema.gov/emergency-managers/nims
+  U.S. Government work — not subject to copyright under 17 U.S.C. § 105
+  Training data derived from publicly available FEMA publications.
+
+-------------------------------------------------------------------------------
+Incident Command System (ICS) Reference Materials
+  Source: Emergency Management Institute (EMI), FEMA
+  https://training.fema.gov/emi.aspx
+  U.S. Government work — public domain.
+
+-------------------------------------------------------------------------------
+xView2 Building Damage Dataset (Moore, OK subset)
+  Source: DIUx xView 2 Challenge / U.S. Defense Innovation Unit
+  https://xview2.org
+  Licensed under CC BY 4.0
+  Used for building damage classification overlays.
+
+-------------------------------------------------------------------------------
+Leaflet.js
+  Copyright 2010–2024 Vladimir Agafonkin
+  Licensed under BSD 2-Clause License
+  https://leafletjs.com
+
+-------------------------------------------------------------------------------
+Ollama
+  Copyright 2023 Ollama
+  Licensed under MIT License
+  https://github.com/ollama/ollama
+
+-------------------------------------------------------------------------------
+Piper TTS (en_GB-alan-medium voice)
+  Copyright 2022 Rhasspy
+  Licensed under MIT License
+  https://github.com/rhasspy/piper
+  Voice: en_GB-alan-medium (British English, medium quality)
+  https://huggingface.co/rhasspy/piper-voices
+
+-------------------------------------------------------------------------------
+ESRI World Imagery (offline tile cache — Moore, OK area)
+  Source: ESRI / Maxar / Earthstar Geographics
+  MBTiles cache covers zoom 11–16, Moore/OKC metro area only.
+  Tiles downloaded for offline use under ESRI standard license terms.
+  This cache is for demonstration purposes only and is not for redistribution.

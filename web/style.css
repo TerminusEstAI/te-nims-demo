@@ -1,0 +1,2021 @@
+/* App-like polish: smooth transitions, no body scroll, no text selection
+   on chrome elements that don't need it. */
+* { -webkit-tap-highlight-color: transparent; }
+button { transition: background 0.12s ease, color 0.12s ease, filter 0.12s ease; }
+.tab, .panel-head, .banner, header { user-select: none; }
+.btn:active { transform: translateY(1px); }
+.msg { animation: msgFadeIn 0.18s ease-out; }
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* TE brand: T orange (#e8551a), E white, rest orange. */
+:root {
+  --te-orange:  #e8551a;
+  --te-white:   #ffffff;
+  --te-bg:      #0d0d0e;
+  --te-bg-2:    #1a1a1c;
+  --te-bg-3:    #232325;
+  --te-dim:     #888;
+  --te-border:  #2a2a2c;
+  --te-green:   #5cb85c;
+  --te-red:     #e74c3c;
+  --te-yellow:  #f5a623;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--te-bg);
+  color: var(--te-white);
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 13px;
+  height: 100vh;
+  height: 100dvh;   /* iOS Safari: dynamic viewport excludes toolbar */
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+header {
+  padding: 10px 18px 8px;
+  border-bottom: 1px solid var(--te-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 1px;
+  font-weight: 800;
+}
+
+.brand-t    { color: var(--te-orange); }
+.brand-e    { color: var(--te-white); }
+.brand-rest { color: var(--te-orange); }
+
+.subtitle {
+  font-size: 11px;
+  color: var(--te-dim);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  margin-left: 14px;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--te-dim);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--te-yellow);
+  display: inline-block;
+}
+.dot.up   { background: var(--te-green); }
+.dot.down { background: var(--te-red); }
+
+/* ── COP grid: chat full-left | map top-right + tabbed panel bottom-right ─ */
+main.cop {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows:    1fr 1fr;
+  grid-template-areas:
+    "chat map"
+    "chat tabs";
+  gap: 8px;
+  padding: 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#panel-chat { grid-area: chat; }
+#panel-map  { grid-area: map; }
+#panel-tabs { grid-area: tabs; }
+
+/* ── Tabbed panel header ───────────────────────────────────────────── */
+.panel-head-tabs {
+  padding: 0 12px 0 0;
+}
+.tabs {
+  display: flex;
+  gap: 0;
+  flex: 1;
+}
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--te-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 8px 14px;
+  cursor: pointer;
+  outline: none;
+}
+.tab:hover { color: var(--te-white); }
+.tab.active {
+  color: var(--te-orange);
+  border-bottom-color: var(--te-orange);
+}
+
+.tab-pane         { display: none; }
+/* Active pane covers the whole bottom-right panel body so empty / short
+ * tabs (e.g. the Artifacts empty state) don't reveal the panel background
+ * underneath. Solid bg + flex layout means the pane "owns" the area. */
+.tab-pane.active  {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--te-bg-2);
+}
+
+/* hidden-meta = data-only spans inside tab-panes; rendered by tab-meta-display
+   in the tabs header so the same value is visible in the active tab without
+   duplicating it inside the body */
+.hidden-meta { position: absolute; left: -9999px; }
+
+.panel {
+  background: var(--te-bg-2);
+  border: 1px solid var(--te-border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.panel-head {
+  background: var(--te-bg-3);
+  border-bottom: 1px solid var(--te-border);
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  color: var(--te-orange);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+.panel-meta {
+  color: var(--te-dim);
+  font-size: 11px;
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  min-height: 0;
+}
+
+/* ── Chat panel ────────────────────────────────────────────────────── */
+#chat-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg {
+  padding: 8px 12px;
+  border-radius: 4px;
+  line-height: 1.55;
+  word-wrap: break-word;
+}
+
+.msg.system {
+  background: transparent;
+  color: var(--te-dim);
+  font-size: 11px;
+  border-left: 3px solid var(--te-orange);
+  padding-left: 10px;
+}
+
+.msg.user {
+  background: transparent;
+  color: var(--te-white);
+}
+.msg.user::before {
+  content: "❯ ";
+  color: var(--te-orange);
+  font-weight: bold;
+}
+.msg-user-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 6px 14px;   /* indent past the ❯ */
+}
+.msg-user-image-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 240px;
+}
+.msg-user-images img {
+  max-width: 220px;
+  max-height: 160px;
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  cursor: zoom-in;
+  background: var(--te-bg-2);
+}
+.msg-user-images img:hover { border-color: var(--te-orange); }
+.msg-user-image-url {
+  font-size: 10px;
+  color: var(--te-orange);
+  text-decoration: none;
+  word-break: break-all;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+.msg-user-image-url:hover { text-decoration: underline; }
+.msg-user-text { margin-left: 14px; }   /* align with chip indent */
+
+/* ── Composer image chips (pending drag/drop/paste attachments) ──────── */
+.image-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--te-border);
+  background: var(--te-bg-2);
+  flex-shrink: 0;
+}
+.image-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--te-bg-3);
+  border: 1px solid var(--te-border);
+  border-radius: 4px;
+  max-width: 220px;
+}
+.image-chip img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+.image-chip-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.image-chip-name {
+  font-size: 11px;
+  color: var(--te-white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+.image-chip-prov {
+  font-size: 9px;
+  color: var(--te-orange);
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+.image-chip-rm {
+  background: transparent;
+  border: none;
+  color: var(--te-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.image-chip-rm:hover { color: var(--te-red); }
+
+/* Document chips (PDF library drops) — same chrome as image chips, but
+ * with a 📄 icon column instead of a raster preview. */
+.image-chip-doc { background: var(--te-bg-2); border-color: var(--te-border); }
+.image-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  background: var(--te-bg-3);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.image-chip-err { color: var(--te-red); }
+
+/* Document attachments rendered above the user message — title link +
+ * chunk count, monospace, indented to align with the ❯ chevron. */
+.msg-user-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 6px 14px;
+}
+.msg-user-doc-tile {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  color: var(--te-dim);
+}
+.msg-user-doc-icon { font-size: 13px; }
+.msg-user-doc-link {
+  color: var(--te-orange);
+  text-decoration: none;
+}
+.msg-user-doc-link:hover { text-decoration: underline; }
+.msg-user-doc-status { color: var(--te-dim); font-size: 10px; }
+
+/* Composer becomes the drop target while a draggable image is over it.
+ * The overlay is scoped to the input row only (per operator request) so
+ * dragging an artifact across the page doesn't blanket-highlight the
+ * whole UI — the highlight reads as "drop here" only on the actual
+ * input you're aiming at. */
+#composer {
+  position: relative;
+}
+#composer.drop-target {
+  outline: 2px dashed var(--te-orange);
+  outline-offset: -2px;
+  background: rgba(232, 85, 26, 0.10);
+}
+#composer.drop-target::after {
+  content: "Drop image to attach";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--te-orange);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  pointer-events: none;     /* let drop events still reach the form */
+  background: transparent;
+}
+
+.msg.assistant {
+  background: var(--te-bg-3);
+  color: var(--te-white);
+  position: relative;
+}
+/* Orange horizontal rule at the end of each turn — visual separator
+   between consecutive doctrine answers, same brand color as the rest. */
+.msg.assistant::after {
+  content: "";
+  display: block;
+  height: 2px;
+  background: var(--te-orange);
+  margin: 14px -12px -8px -12px;
+  border-radius: 1px;
+}
+.msg.assistant .label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.msg.assistant .label .t    { color: var(--te-orange); }
+.msg.assistant .label .e    { color: var(--te-white); }
+.msg.assistant .label .rest { color: var(--te-orange); }
+
+/* Thinking indicator while waiting for the first token — mirrors the
+   CLI's orange Braille spinner + rotating verb. */
+.msg.assistant .body .thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--te-dim);
+  font-size: 13px;
+}
+.msg.assistant .body .thinking .spinner {
+  color: var(--te-orange);
+  font-weight: 700;
+  font-size: 16px;
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+}
+.msg.assistant .body .thinking .verb {
+  font-style: italic;
+}
+
+/* Rendered markdown inside assistant messages */
+.msg.assistant .body { white-space: normal; }
+.msg.assistant .body h1,
+.msg.assistant .body h2,
+.msg.assistant .body h3 {
+  margin: 10px 0 6px 0;
+  color: var(--te-orange);
+  font-weight: 700;
+}
+.msg.assistant .body h1 { font-size: 16px; }
+.msg.assistant .body h2 { font-size: 14px; }
+.msg.assistant .body h3 { font-size: 13px; }
+.msg.assistant .body p           { margin: 6px 0; }
+/* All highlight / emphasis renders TE orange per brand guide:
+   - <strong> labels like "Crucial Advisory:" / "Doctrine Citation:" / "Note:"
+   - <em>     italicized phrases the model wants the IC to read first
+   - <code>   inline code / form numbers / API references
+   These are the "scan first" cues for an IC under cognitive load. */
+.msg.assistant .body strong      { color: var(--te-orange); font-weight: 700; }
+.msg.assistant .body em          { color: var(--te-orange); font-style: italic; }
+.msg.assistant .body code        { background: #000; padding: 1px 5px; border-radius: 2px; color: var(--te-orange); }
+.msg.assistant .body pre         { background: #000; padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+.msg.assistant .body pre code    { background: transparent; padding: 0; color: var(--te-white); }
+.msg.assistant .body ul,
+.msg.assistant .body ol          { padding-left: 22px; margin: 6px 0; }
+.msg.assistant .body li          { margin: 2px 0; }
+.msg.assistant .body blockquote  { border-left: 2px solid var(--te-orange); padding-left: 10px; color: var(--te-dim); margin: 6px 0; }
+/* Inline artifact images — clickable into the full-screen modal lightbox
+ * (wired by app.js wireInlineArtifactImages). Bounded so they don't
+ * blow out the chat column. */
+.msg.assistant .body img {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  margin: 6px 0;
+  cursor: zoom-in;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.msg.assistant .body img:hover { border-color: var(--te-orange); }
+
+/* ── Map panel ─────────────────────────────────────────────────────── */
+#panel-map .panel-body { position: relative; }
+#map {
+  width: 100%;
+  height: 100%;
+  background: #0a0a0b;  /* shows behind tiles while they load */
+}
+
+/* Map placeholder — shown before /demo loads a scenario */
+.map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--te-dim);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.map-placeholder[hidden] { display: none !important; }
+.map-placeholder code {
+  color: var(--te-orange);
+  font: inherit;
+}
+
+/* Locate button — pinned to top-right of map */
+.map-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  background: var(--te-orange);
+  color: var(--te-white);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.map-btn:hover  { filter: brightness(1.15); }
+.map-btn:active { filter: brightness(0.9); }
+.map-btn-overlay              { background: #555; }
+.map-btn-overlay.active       { background: #e8551a; }
+#map-tiles     { top:  44px; }
+#map-track     { top:  80px; }
+#map-buildings { top: 116px; }
+
+#map-legend {
+  position: absolute;
+  bottom: 24px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(20, 20, 20, 0.82);
+  color: #eee;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+.legend-title { font-weight: 700; font-size: 10px; text-transform: uppercase;
+                letter-spacing: .06em; opacity: .7; margin-bottom: 4px; }
+.legend-row   { display: flex; align-items: center; gap: 7px; }
+.legend-dot   { display: inline-block; width: 11px; height: 11px;
+                border-radius: 50%; flex-shrink: 0;
+                border: 1px solid rgba(255,255,255,0.25); }
+.legend-swatch { display: inline-block; width: 18px; height: 3px;
+                 /* 2 horizontal dashes: 6px white · 3px gap · 6px white · 3px gap = 18px */
+                 background: repeating-linear-gradient(90deg, #fff 0, #fff 6px, transparent 6px, transparent 9px);
+                 flex-shrink: 0; vertical-align: middle; }
+
+/* Custom pin styles — small colored disk with a unicode symbol */
+.te-pin { background: transparent; border: none; }
+.te-pin-inner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Leaflet popups — match the dark theme */
+.leaflet-popup-content-wrapper {
+  background: var(--te-bg-2) !important;
+  color: var(--te-white) !important;
+  border: 1px solid var(--te-border) !important;
+  border-radius: 4px !important;
+}
+.leaflet-popup-tip { background: var(--te-bg-2) !important; }
+.leaflet-popup-content {
+  margin: 8px 12px !important;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+.leaflet-popup-content small { color: var(--te-dim); }
+
+.leaflet-control-zoom a {
+  background: var(--te-bg-2) !important;
+  color: var(--te-white) !important;
+  border: 1px solid var(--te-border) !important;
+}
+
+/* ── VPO chain panel ───────────────────────────────────────────────── */
+.chain-empty {
+  color: var(--te-dim);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.chain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chain-block {
+  background: var(--te-bg-3);
+  border-left: 3px solid var(--te-orange);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.chain-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+.chain-idx    { color: var(--te-orange); font-weight: 700; }
+.chain-type   { color: var(--te-white); font-weight: 700; }
+.chain-when   { color: var(--te-dim); font-size: 10px; margin-left: auto; }
+
+.chain-meta-line {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--te-dim);
+}
+.chain-signer { flex: 1; }
+.chain-sig    { color: var(--te-orange); font-size: 10px; }
+
+.chain-detail {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.chain-detail summary {
+  cursor: pointer;
+  color: var(--te-dim);
+  user-select: none;
+}
+.chain-detail summary:hover { color: var(--te-orange); }
+.chain-detail pre {
+  background: #000;
+  color: var(--te-white);
+  padding: 6px 8px;
+  border-radius: 3px;
+  margin: 6px 0;
+  overflow-x: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+/* ── Inline VPO signature footer on each assistant message ───────────── */
+/* Renders as a single button-styled line: classification + sig prefix +
+/* ── Tool-call / reasoning trace blocks ─────────────────────────────────────
+ * Collapsed <details> appended to assistant turns for MAP commands and
+ * reasoning traces. Hidden by default; click ▸ summary to expand. */
+.unverified-warning {
+  margin: 8px 0 2px 0;
+  padding: 5px 10px;
+  background: rgba(231, 76, 60, 0.10);
+  border-left: 3px solid var(--te-red);
+  border-radius: 0 3px 3px 0;
+  font-size: 12px;
+  color: #ccc;
+  line-height: 1.5;
+}
+.unverified-warning strong { color: var(--te-red); }
+.unverified-warning code  { background: rgba(255,255,255,.08); padding: 1px 4px; border-radius: 3px; }
+
+/* Inline doctrine citation links — underlined in the TE orange accent color.
+   Opens the PDF in a new window via /library/<filename>. */
+.doctrine-cite-link {
+  color: var(--te-orange, #e87c2b);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.doctrine-cite-link:hover {
+  text-decoration-style: solid;
+  opacity: 0.85;
+}
+
+.tool-trace {
+  margin: 5px 0 2px 14px;
+  border-left: 2px solid #333;
+  padding-left: 8px;
+}
+.tool-trace > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--te-dim);
+  font-size: 11px;
+  user-select: none;
+  padding: 2px 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.tool-trace > summary::-webkit-details-marker { display: none; }
+.tool-trace > summary::before { content: "▸ "; font-size: 9px; }
+.tool-trace[open] > summary::before { content: "▾ "; }
+.tool-trace > summary:hover { opacity: 1; }
+.tool-trace-icon { margin-right: 3px; }
+.tool-trace-body {
+  margin: 4px 0 0 0;
+  padding: 5px 8px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 3px;
+  font-family: var(--te-mono, monospace);
+  font-size: 10px;
+  color: var(--te-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+ * time + ↗ jump-to-chain. Click anywhere on the footer to switch the
+ * right-panel tabs to the VPO Chain entry for this turn. Full provenance
+ * payload (key id, full sig, response_hash, on-disk record) lives in the
+ * chain block — single source of truth, no duplication. */
+.msg-vpo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 8px 6px 0;
+  border: none;
+  border-top: 1px dashed var(--te-border);
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 10px;
+  color: var(--te-dim);
+  user-select: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+}
+.msg-vpo-footer:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.msg-vpo-footer:hover .msg-vpo-jump,
+.msg-vpo-footer:focus-visible .msg-vpo-jump {
+  color: var(--te-orange);
+}
+.msg-vpo-rule  { color: var(--te-border); }
+.msg-vpo-tag   {
+  font-weight: 700;
+  color: var(--te-orange);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.msg-vpo-class {
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.msg-vpo-demo .msg-vpo-class,
+.msg-vpo-training .msg-vpo-class { background: rgba(245, 166, 35, 0.18); color: var(--te-yellow); }
+.msg-vpo-production .msg-vpo-class { background: rgba(92, 184, 92, 0.18); color: var(--te-green); }
+.msg-vpo-unknown .msg-vpo-class    { background: rgba(231, 76, 60, 0.18); color: var(--te-red); }
+
+.msg-vpo-sig    { color: var(--te-orange); font-size: 10px; }
+.msg-vpo-time   { color: var(--te-dim); }
+.msg-vpo-jump   {
+  margin-left: auto;
+  color: var(--te-dim);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  transition: color 0.12s ease;
+}
+
+/* Chain block pulse — fired by app.js jumpToChainBlock() so the operator
+ * sees a brief orange glow on the block they just landed on. */
+@keyframes chainBlockPulse {
+  0%   { box-shadow: 0 0 0 0   rgba(232, 85, 26, 0.0);  background: var(--te-bg-3); }
+  20%  { box-shadow: 0 0 0 4px rgba(232, 85, 26, 0.45); background: rgba(232, 85, 26, 0.10); }
+  100% { box-shadow: 0 0 0 0   rgba(232, 85, 26, 0.0);  background: var(--te-bg-3); }
+}
+.chain-block-pulse {
+  animation: chainBlockPulse 1.6s ease-out 1;
+}
+
+/* Per-block provenance metadata (response hash, length, on-disk path)
+ * inside the chain-detail expander. Compact, monospaced, the same code
+ * styling as the existing chain-link block so the two read consistently. */
+.chain-prov {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--te-dim);
+}
+.chain-prov code { color: var(--te-orange); word-break: break-all; }
+.chain-prov a    { color: var(--te-orange); text-decoration: none; }
+.chain-prov a:hover { text-decoration: underline; }
+.chain-prov-warn { color: var(--te-red); }
+
+/* ── Signing-key classification banner (top of VPO chain panel) ──────── */
+.chain-key-banner {
+  margin: 0 0 10px 0;
+  padding: 8px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  border-left: 3px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.chain-key-banner strong { font-weight: 700; letter-spacing: 0.3px; }
+.chain-key-note          { color: var(--te-dim); font-size: 10px; }
+
+/* F-4: count-mismatch reconcile banner — sits above the chain list.
+ * Red border because chain mismatch is more severe than a demo-key warning;
+ * forces the operator's eye. */
+.chain-reconcile-banner {
+  margin: 0 0 10px 0;
+  padding: 8px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  border-left: 3px solid var(--te-red);
+  background: rgba(231, 76, 60, 0.10);
+  color: var(--te-red);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chain-reconcile-banner strong { font-weight: 700; }
+.chain-reconcile-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.chain-reconcile-actions .btn { font-size: 11px; padding: 4px 10px; }
+
+/* ── Verify Chain bar (sits between key banner and chain list) ──────── */
+/* Verification functionality removed (unused in demo) */
+.chain-block { position: relative; }
+
+.chain-key-demo,
+.chain-key-training {
+  background: rgba(245, 166, 35, 0.10);
+  border-left-color: var(--te-yellow);
+  color: var(--te-yellow);
+}
+.chain-key-production {
+  background: rgba(92, 184, 92, 0.10);
+  border-left-color: var(--te-green);
+  color: var(--te-green);
+}
+.chain-key-unknown {
+  background: rgba(231, 76, 60, 0.10);
+  border-left-color: var(--te-red);
+  color: var(--te-red);
+}
+
+/* Per-block key badge (small chip in chain-meta-line) */
+.chain-key-badge {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+.chain-key-badge-demo,
+.chain-key-badge-training { background: rgba(245, 166, 35, 0.18); color: var(--te-yellow); }
+.chain-key-badge-production { background: rgba(92, 184, 92, 0.18); color: var(--te-green); }
+.chain-key-badge-unknown { background: rgba(231, 76, 60, 0.18); color: var(--te-red); }
+
+/* ── chat_turn block payload (Q/A lines inside .chain-detail) ─────────── */
+.chain-turn-q,
+.chain-turn-a {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 6px 0;
+  padding: 6px 8px;
+  background: var(--te-bg-2);
+  border-left: 2px solid var(--te-border);
+  border-radius: 2px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.chain-turn-q strong { color: var(--te-orange); margin-right: 6px; }
+.chain-turn-a strong { color: var(--te-dim);    margin-right: 6px; }
+.chain-turn-a        { border-left-color: var(--te-orange); }
+.chain-link {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--te-dim);
+}
+.chain-genesis { color: var(--te-yellow); }
+
+/* ── Stub panels (form / chain — map is no longer a stub) ──────────── */
+.stub {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: var(--te-dim);
+  gap: 10px;
+  padding: 20px;
+}
+.stub-title {
+  color: var(--te-orange);
+  font-weight: 700;
+  font-size: 14px;
+}
+.stub-body  { font-size: 12px; line-height: 1.6; max-width: 420px; }
+.stub-tag {
+  font-size: 10px;
+  color: var(--te-yellow);
+  background: rgba(245, 166, 35, 0.1);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ICS form panel — actual form structure even though stubbed */
+.form-stub { display: flex; flex-direction: column; gap: 10px; }
+.form-row  { display: flex; flex-direction: column; gap: 3px; }
+.form-row label {
+  color: var(--te-orange);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.form-row input,
+.form-row textarea {
+  background: var(--te-bg);
+  color: var(--te-white);
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+.form-row input:disabled,
+.form-row textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.form-row textarea { resize: vertical; min-height: 50px; max-height: 160px; }
+.form-row input:focus,
+.form-row textarea:focus { border-color: var(--te-orange); outline: none; }
+
+.form-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.btn {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.btn-primary   { background: var(--te-orange); color: var(--te-white); }
+.btn-secondary { background: var(--te-bg-3);   color: var(--te-orange); border: 1px solid var(--te-orange); }
+.btn-ghost     { background: transparent;       color: var(--te-dim);   border: 1px solid var(--te-border); }
+.btn:hover  { filter: brightness(1.15); }
+.btn:active { filter: brightness(0.9); }
+
+/* ── Voice buttons in composer ─────────────────────────────────────── */
+#mic, #tts {
+  font-size: 16px;
+  padding: 0 12px;
+  width: 42px;
+}
+#mic.listening {
+  background: var(--te-orange);
+  color: var(--te-white);
+  animation: pulse 1.2s infinite;
+}
+#tts.active {
+  background: var(--te-orange);
+  color: var(--te-white);
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 85, 26, 0.8); }
+  50%      { box-shadow: 0 0 0 6px rgba(232, 85, 26, 0); }
+}
+
+/* ── Composer ──────────────────────────────────────────────────────── */
+#composer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--te-border);
+  flex-shrink: 0;
+}
+#prompt {
+  flex: 1;
+  background: var(--te-bg-2);
+  color: var(--te-white);
+  border: 1px solid var(--te-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font: inherit;
+  outline: none;
+}
+#prompt:focus    { border-color: var(--te-orange); }
+#prompt:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#send {
+  background: var(--te-orange);
+  color: var(--te-white);
+  border: none;
+  padding: 0 18px;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+#send:disabled { background: #444; cursor: not-allowed; }
+
+/* ── Bottom orange status bar (matches CLI prompt_toolkit toolbar) ── */
+footer {
+  background: var(--te-orange);
+  color: var(--te-white);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 6px 18px;
+  flex-shrink: 0;
+  letter-spacing: 0.4px;
+}
+
+/* ── Mobile / iPad portrait fallback ───────────────────────────────── */
+/* ── Mobile bottom navigation ─────────────────────────────────────── */
+.mobile-nav { display: none; }
+
+@media (max-width: 700px) {
+  /* Show bottom nav, hide tour button in header to save space */
+  .mobile-nav {
+    display: flex;
+    background: var(--te-bg-3);
+    border-top: 1px solid var(--te-border);
+    flex-shrink: 0;
+    /* Safe area for iPhone home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mobile-nav-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--te-dim);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    font: inherit;
+    font-size: 10px;
+  }
+  .mobile-nav-btn.active { color: var(--te-orange); }
+  .mobile-nav-icon { font-size: 20px; line-height: 1; }
+  .mobile-nav-label { font-size: 10px; letter-spacing: 0.3px; }
+
+  /* Single-column full-screen panels */
+  main.cop {
+    display: block;
+    padding: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* All panels hidden by default on mobile */
+  main.cop #panel-chat,
+  main.cop #panel-map,
+  main.cop #panel-tabs {
+    display: none;
+    position: absolute;
+    inset: 4px;
+    height: calc(100% - 8px);
+  }
+
+  /* Show only the active panel (controlled by mobile-tab-* class on <main>) */
+  main.cop.mobile-tab-chat  #panel-chat { display: flex; }
+  main.cop.mobile-tab-map   #panel-map  { display: flex; }
+  main.cop.mobile-tab-tabs  #panel-tabs { display: flex; }
+
+  /* Header compact on mobile */
+  header {
+    padding: 6px 12px 5px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  header h1 { font-size: 18px; }
+  .tour-btn { font-size: 10px; padding: 3px 8px; }
+
+  /* Tour card: full-width on mobile */
+  .te-tour-float {
+    width: calc(100vw - 12px);
+    left: 6px !important;
+    right: 6px;
+    transform: none !important;
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    max-height: 55vh;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  /* Welcome modal: slide up from bottom on mobile */
+  #te-welcome-overlay { align-items: flex-end; }
+  .te-welcome-box {
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Composer: bigger tap targets */
+  #composer textarea { font-size: 16px; } /* prevents iOS zoom on focus */
+}
+
+/* ── Artifacts panel ──────────────────────────────────────────────────
+ * Thumbnail grid mirrors the chain-block visual language: dark bg,
+ * orange left-border accent, 11-12px caption. Click → modal lightbox.
+ * Auto-fit so the grid reflows in narrow panes (mobile portrait, etc.).
+ */
+.artifacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 4px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.artifact-thumb {
+  background: var(--te-bg-3);
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  overflow: hidden;
+  transition: border-color 80ms ease, transform 80ms ease;
+}
+.artifact-thumb:hover  { border-color: var(--te-orange); transform: translateY(-1px); cursor: grab; }
+.artifact-thumb:active { cursor: grabbing; }
+.artifact-thumb:focus  { outline: 2px solid var(--te-orange); outline-offset: 1px; }
+
+.artifact-thumb img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--te-bg-2);
+  display: block;
+}
+
+.artifact-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-top: 1px solid var(--te-border);
+}
+.artifact-type {
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--te-bg-2);
+  color: var(--te-orange);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.artifact-type-chart  { background: rgba(232, 85, 26, 0.15); }
+.artifact-type-viz    { background: rgba(92, 184, 92, 0.15); color: var(--te-green); }
+.artifact-type-map    { background: rgba(245, 166, 35, 0.15); color: var(--te-yellow); }
+.artifact-type-upload { background: rgba(231, 76, 60, 0.15); color: var(--te-red); }
+.artifact-type-doc    { background: rgba(100, 149, 237, 0.15); color: #6495ed; }
+
+/* Doc artifact card — no image, just an icon + title */
+.artifact-doc-icon  { font-size: 36px; line-height: 1; margin: 8px auto 4px; text-align: center; }
+.artifact-doc-title { font-size: 11px; color: var(--te-white); text-align: center; padding: 0 4px 6px;
+                      overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+                      -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+.artifact-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--te-white);
+}
+.artifact-time {
+  color: var(--te-dim);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Artifact modal (full-size lightbox) ────────────────────────────── */
+/* Modal backdrop — clicking it closes (handled in artifacts.js).
+ * Inset 0 so it covers the viewport, but the inner frame is bounded
+ * smaller so we get a real "windowed" feel instead of full-bleed. */
+.artifact-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.artifact-modal[hidden] { display: none; }
+
+/* Inner frame — bordered, bounded panel that holds the image + caption.
+ * Bounded so the modal doesn't blow out the page; the user can pop out
+ * for a true full-window view. */
+.artifact-modal-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--te-bg-2);
+  border: 2px solid var(--te-orange);
+  border-radius: 6px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+  padding: 36px 18px 14px 18px;   /* room for the action bar at top */
+  max-width:  80vw;
+  max-height: 80vh;
+  min-width:  320px;
+}
+
+/* Top-right action bar inside the frame — pop-out + close. */
+.artifact-modal-actions {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+.artifact-modal-actions button {
+  background: transparent;
+  color: var(--te-dim);
+  border: 1px solid transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 3px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.artifact-modal-actions button:hover {
+  color: var(--te-orange);
+  border-color: var(--te-border);
+}
+.artifact-modal-popout { font-size: 14px; }     /* ↗ glyph reads small at 16px */
+.artifact-modal-close  { font-size: 22px; }
+
+.artifact-modal-img {
+  max-width:  calc(80vw - 40px);
+  max-height: calc(80vh - 90px);  /* leave room for caption + actions */
+  object-fit: contain;
+  border: 1px solid var(--te-border);
+  background: var(--te-bg-3);
+  border-radius: 3px;
+}
+
+.artifact-modal-caption {
+  color: var(--te-dim);
+  font-size: 12px;
+  margin-top: 10px;
+  text-align: center;
+  max-width: 100%;
+  user-select: text;
+}
+
+/* ── PDF modal ────────────────────────────────────────────────────────── */
+.pdf-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 9100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.pdf-modal[hidden] { display: none; }
+
+.pdf-modal-frame {
+  display: flex;
+  flex-direction: column;
+  width:  min(960px, 92vw);
+  height: min(860px, 88vh);
+  background: var(--te-bg-2);
+  border: 2px solid var(--te-orange);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.pdf-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--te-bg-3);
+  border-bottom: 1px solid var(--te-border);
+  flex-shrink: 0;
+}
+
+.pdf-modal-title {
+  font-size: 12px;
+  color: var(--te-fg);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin-right: 12px;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pdf-modal-save {
+  background: transparent;
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  color: var(--te-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  transition: border-color 0.1s, color 0.1s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.pdf-modal-save:hover { border-color: var(--te-orange); color: var(--te-orange); }
+
+.pdf-modal-replace {
+  background: transparent;
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  color: var(--te-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  transition: border-color 0.1s, color 0.1s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.pdf-modal-replace:hover { border-color: var(--te-orange); color: var(--te-orange); }
+
+.pdf-modal-close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--te-dim);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: color 0.1s, border-color 0.1s;
+}
+.pdf-modal-close:hover { color: var(--te-orange); border-color: var(--te-border); }
+
+.pdf-modal-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+
+/* ── Library tab — read-only NIMS doctrine PDF corpus ───────────────── */
+/* Padding only — display rules deliberately NOT set here. The base
+ * `.tab-pane { display: none }` and `.tab-pane.active { display: flex }`
+ * own the show/hide; an id-level display would beat those on specificity
+ * and the inactive library would leak through under other tabs. */
+#tab-library { padding: 0; }
+.library-header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--te-border);
+  background: var(--te-bg-2);
+}
+#library-search {
+  width: 100%;
+  background: var(--te-bg-3);
+  color: var(--te-white);
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+#library-search:focus { border-color: var(--te-orange); }
+
+.library-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.library-group {
+  border-bottom: 1px solid var(--te-border);
+}
+.library-group-head {
+  padding: 6px 12px;
+  background: var(--te-bg-3);
+  color: var(--te-orange);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.library-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.library-row { margin: 0; }
+.library-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--te-white);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.library-row-btn:hover {
+  background: rgba(232, 85, 26, 0.08);
+}
+.library-row-btn:focus-visible {
+  outline: 1px solid var(--te-orange);
+  outline-offset: -1px;
+}
+
+.library-badge {
+  flex-shrink: 0;
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--te-dim);
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+.library-badge-nims  { background: rgba(232, 85, 26, 0.22); color: var(--te-orange); }
+.library-badge-nrf   { background: rgba(245, 166, 35, 0.20); color: var(--te-yellow); }
+.library-badge-esf   { background: rgba(92, 184, 92, 0.18);  color: var(--te-green); }
+.library-badge-ics   { background: rgba(120, 130, 240, 0.18); color: #a3aef0; }
+.library-badge-other { background: rgba(255, 255, 255, 0.08); color: var(--te-dim); }
+
+.library-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library-size {
+  flex-shrink: 0;
+  color: var(--te-dim);
+  font-size: 10px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+/* Tiny green dot next to PDFs the operator has already prepped via the
+ * RAG endpoint. Indicates "drag this in for instant chat-with-doc; the
+ * embed step will be cached." */
+.library-indexed {
+  flex-shrink: 0;
+  color: var(--te-green);
+  font-size: 10px;
+  cursor: help;
+}
+
+/* ── ICS Forms tab ──────────────────────────────────────────────────── */
+#tab-form { padding: 0; }
+
+.ics-search-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--te-border);
+  background: var(--te-bg-2);
+}
+
+.ics-search-bar input[type="search"] {
+  flex: 1;
+  background: var(--te-bg);
+  border: 1px solid var(--te-border);
+  border-radius: 3px;
+  color: var(--te-white);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 7px;
+  outline: none;
+}
+.ics-search-bar input[type="search"]:focus {
+  border-color: var(--te-orange);
+}
+
+.ics-forms-meta {
+  flex-shrink: 0;
+  color: var(--te-dim);
+  font-size: 10px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  white-space: nowrap;
+}
+
+.ics-forms-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.ics-forms-ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ics-form-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--te-border);
+  font-size: 11px;
+  min-height: 32px;
+}
+.ics-form-row:hover { background: rgba(255,255,255,0.03); }
+
+.ics-form-badge {
+  flex-shrink: 0;
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  background: rgba(120, 130, 240, 0.18);
+  color: #a3aef0;
+  min-width: 52px;
+  text-align: center;
+}
+
+.ics-form-title {
+  flex: 1;
+  color: var(--te-white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ics-form-size,
+.ics-form-date {
+  flex-shrink: 0;
+  color: var(--te-dim);
+  font-size: 10px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+.ics-form-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.btn-ics-open {
+  background: transparent;
+  border: 1px solid var(--te-border);
+  border-radius: 2px;
+  color: var(--te-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  padding: 2px 6px;
+  transition: border-color 0.1s, color 0.1s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.btn-ics-open:hover { border-color: var(--te-orange); color: var(--te-orange); }
+
+.btn-ics-save {
+  background: transparent;
+  border: 1px solid var(--te-border);
+  border-radius: 2px;
+  color: var(--te-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  padding: 2px 6px;
+  transition: border-color 0.1s, color 0.1s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.btn-ics-save:hover { border-color: var(--te-orange); color: var(--te-orange); }
+.btn-ics-save:disabled { opacity: 0.5; cursor: default; }
+
+.ics-vpo-link {
+  font-size: 9px;
+  color: var(--te-orange);
+  text-decoration: none;
+  border: 1px solid var(--te-orange);
+  border-radius: 2px;
+  padding: 1px 4px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.ics-vpo-link:hover { opacity: 1; }
+
+.ics-prior-versions {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--te-dim);
+}
+.ics-prior-versions summary { cursor: pointer; }
+.ics-prior-version-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.btn-ics-open-prior {
+  background: transparent;
+  border: none;
+  color: var(--te-orange);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.ics-form-empty {
+  padding: 16px;
+  color: var(--te-dim);
+  font-size: 11px;
+}
+
+/* ── Data tab — Odin Gold infrastructure layer overview ─────────────── */
+#tab-data { padding: 0; }
+
+.data-header {
+  flex-shrink: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--te-border);
+  background: var(--te-bg-2);
+}
+
+.data-title {
+  color: var(--te-orange);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+
+.data-subtitle {
+  color: var(--te-white);
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  margin-bottom: 3px;
+}
+
+.data-coverage {
+  color: var(--te-dim);
+  font-size: 10px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+.data-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  min-height: 0;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+.data-table thead tr {
+  background: var(--te-bg-3);
+  border-bottom: 1px solid var(--te-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.data-table th {
+  color: var(--te-orange);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+  text-align: right;
+}
+
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) {
+  text-align: center;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--te-border);
+  transition: background 0.1s ease;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(232, 85, 26, 0.06);
+}
+
+.data-table td {
+  padding: 5px 8px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.data-table td:nth-child(1) {
+  font-size: 14px;
+  width: 28px;
+  text-align: center;
+}
+
+.data-layer-name {
+  color: var(--te-orange);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.data-layer-desc {
+  color: var(--te-dim);
+  font-size: 10px;
+}
+
+.data-layer-count {
+  color: var(--te-white);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.data-status-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #22c55e;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.data-footer {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-top: 1px solid var(--te-border);
+  background: var(--te-bg-3);
+  color: var(--te-dim);
+  font-size: 10px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  line-height: 1.5;
+}
+
+
+/* ── Web-demo info modal ──────────────────────────────────────────────── */
+#te-web-demo-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.te-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.65); }
+.te-modal-box {
+  position: relative;
+  background: var(--te-panel, #1a1a1e);
+  border: 1px solid var(--te-orange, #e8551a);
+  border-radius: 4px;
+  max-width: 420px;
+  width: 90%;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.te-modal-title { margin: 0 0 12px; font-size: 15px; color: var(--te-orange, #e8551a); }
+.te-modal-body  { margin: 0 0 10px; font-size: 12px; line-height: 1.6; color: var(--te-white, #e8e8e8); opacity: 0.85; }
+.te-modal-close {
+  margin-top: 16px;
+  background: var(--te-orange, #e8551a);
+  border: none;
+  border-radius: 2px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 20px;
+}
+.te-modal-close:hover { opacity: 0.85; }
+
+/* ── Guided tour — floating modal ────────────────────────────────────── */
+.te-tour-float {
+  position: fixed;
+  top: calc(96px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  user-select: none;
+  width: 320px;
+  background: rgba(26, 26, 28, 0.72);
+  border: 1px solid var(--te-orange, #e8551a);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  padding: 14px 16px 12px;
+  z-index: 8000;
+  font-size: 12px;
+}
+.te-tour-float-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.te-tour-dots {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+.te-tour-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--te-border, #2a2a2c);
+  border: 1px solid var(--te-dim, #888);
+  transition: background 0.2s;
+}
+.te-tour-dot.active {
+  background: var(--te-orange, #e8551a);
+  border-color: var(--te-orange, #e8551a);
+}
+.te-tour-dot { cursor: pointer; }
+.te-tour-dot:hover { border-color: var(--te-orange, #e8551a); background: rgba(232,85,26,0.3); }
+.te-tour-badge {
+  color: var(--te-orange, #e8551a);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.te-tour-close {
+  background: transparent;
+  border: none;
+  color: var(--te-dim, #888);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.te-tour-close:hover { color: var(--te-white, #fff); }
+.te-tour-float-body {
+  color: var(--te-white, #e8e8e8);
+  line-height: 1.55;
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+.te-tour-float-query {
+  color: var(--te-dim, #888);
+  font-size: 10px;
+  font-style: italic;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  border-left: 2px solid var(--te-border, #2a2a2c);
+  padding-left: 8px;
+}
+.te-tour-float-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.te-tour-try {
+  background: var(--te-orange, #e8551a);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  transition: opacity 0.12s;
+}
+.te-tour-try:hover { opacity: 0.85; }
+.te-tour-try:disabled { opacity: 0.5; cursor: default; }
+.te-tour-skip {
+  color: var(--te-dim, #888);
+  font-size: 10px;
+  text-decoration: none;
+}
+.te-tour-skip:hover { color: var(--te-white, #fff); text-decoration: underline; }
+
+/* ── Demo Walkthrough button in header ──────────────────────────────── */
+.tour-btn {
+  background: var(--te-orange, #e8551a);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 4px 10px;
+  margin-left: 12px;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+}
+.tour-btn:hover { opacity: 0.85; }
+
+/* ── Welcome modal ────────────────────────────────────────────────────── */
+#te-welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+}
+.te-welcome-box {
+  background: rgba(20, 20, 22, 0.92);
+  border: 1px solid var(--te-orange, #e8551a);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+  max-width: 480px;
+  width: 92%;
+  padding: 32px 28px 24px;
+  animation: welcomeFadeIn 0.25s ease;
+}
+@keyframes welcomeFadeIn {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.te-welcome-logo {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.te-welcome-title {
+  color: var(--te-white, #fff);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+.te-welcome-body {
+  color: var(--te-white, #e8e8e8);
+  font-size: 12px;
+  line-height: 1.65;
+  opacity: 0.85;
+  margin: 0 0 12px;
+}
+.te-welcome-cta {
+  margin-top: 20px;
+  background: var(--te-orange, #e8551a);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 22px;
+  transition: opacity 0.12s;
+  display: block;
+  width: 100%;
+}
+.te-welcome-cta:hover { opacity: 0.87; }
+.te-welcome-actions { display: flex; gap: 10px; margin-top: 20px; }
+.te-welcome-actions .te-welcome-cta { flex: 1; margin-top: 0; }
+.te-welcome-skip { background: transparent !important; border: 1px solid var(--te-border, #2a2a2c) !important; color: var(--te-dim, #888) !important; }
+.te-welcome-skip:hover { border-color: var(--te-dim, #888) !important; color: var(--te-white, #fff) !important; opacity: 1 !important; }
