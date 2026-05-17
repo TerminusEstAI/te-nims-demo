@@ -37,27 +37,27 @@ const STEPS = [
   },
   {
     n: 5,
-    body: "TE NIMS can use Gemma's multimodal capabilities to leverage its doctrinal knowledge.",
-    query: "Create a doctrinally correct version of the diagram.",
-  },
-  {
-    n: 6,
     body: "The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.<br><br>Filter or open any document from the Library. Library contents are available to the AI via Retrieval Augmented Search.",
     query: "search doctrine for 'what are search team roles.'",
     tab: "library",
   },
   {
-    n: 7,
+    n: 6,
     body: "TE NIMS let the Incident Commander know he needed to establish his organizational structure. Chief Martinez has drawn out his org chart on a butcher board. TE NIMS allows him to use the upload QR code to take a picture of it and have it analyzed and redrawn to doctrine then stored as an artifact. Many items in a command center are still done by hand for speed and ease of use, but TE NIMS allows them to be turned into AI available artifacts using Gemma 4's multi-modal vision capabilities.",
     informational: true,
     tab: "upload",
   },
   {
-    n: 8,
+    n: 7,
     body: "Drag and drop the image into the chat area for analysis.",
     query: "redraw this in Ascii.",
     tab: "artifacts",
     waitForImage: true,
+  },
+  {
+    n: 8,
+    body: "TE NIMS can use Gemma's multimodal capabilities to leverage its doctrinal knowledge.",
+    query: "Create a doctrinally correct version of the diagram.",
   },
   {
     n: 9,
