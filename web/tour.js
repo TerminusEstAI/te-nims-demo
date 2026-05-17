@@ -30,6 +30,10 @@ const STEPS = [
     n: 4,
     body: "<span class='te-tour-note'>🔊 Note — You should hear the voice agent in a few seconds. To turn it off click the speaker icon at the bottom right.</span>TE NIMS can generate the data for ICS forms on demand. In the live version these forms can be saved live to the ICS Form Directory.",
     query: "Generate an ICS-201 Incident Briefing for this incident.",
+    preSubmit: () => {
+      const ttsBtn = document.getElementById("tts");
+      if (ttsBtn && ttsBtn.classList.contains("active")) ttsBtn.click();
+    },
   },
   {
     n: 5,
@@ -297,6 +301,7 @@ function _renderStep(step) {
       advanceTour();
       return;
     }
+    if (step.preSubmit) { try { step.preSubmit(); } catch (e) { console.warn("[tour] preSubmit failed:", e); } }
     _promptInput.value = step.query;
     _composer.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     // Grey out the button so it's clear the query was sent
