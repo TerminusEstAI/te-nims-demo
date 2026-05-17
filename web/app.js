@@ -2682,31 +2682,63 @@ initDemo();
   overlay.id = "te-welcome-overlay";
   overlay.innerHTML = `
     <div class="te-welcome-box" role="dialog" aria-modal="true" aria-labelledby="te-welcome-title">
-      <div class="te-welcome-logo">
-        <span class="brand-t">T</span><span class="brand-e">E</span><span class="brand-rest"> NIMS</span>
+
+      <!-- Header -->
+      <div class="te-welcome-header">
+        <div class="te-welcome-logo">
+          <span class="brand-t">T</span><span class="brand-e">E</span><span class="brand-rest"> NIMS</span>
+        </div>
+        <p class="te-welcome-tagline">Saving Lives with AI</p>
+        <h2 class="te-welcome-title" id="te-welcome-title">Verified AI Decision Support for Emergency Management</h2>
       </div>
-      <h2 class="te-welcome-title" id="te-welcome-title">Welcome to the TE NIMS Demo</h2>
-      <p class="te-welcome-body">
-        TE NIMS is an agentic agent harness running a fine-tuned Gemma 4 LLM designed
-        to support first responder Incident Command (IC) with high-quality,
-        doctrine-grounded decision support and agentic tooling. TE NIMS is an
-        open-source project of <strong>Terminus Est AI</strong> and is capable of fully
-        running at the edge on a thumb drive <em>(token throughput governed by computer specs)</em>.
-      </p>
-      <p class="te-welcome-body">
-        This demo loads non-proprietary data for Oklahoma City and a simulated scenario
-        based on the Moore 2013 tornado. TE NIMS is capable of providing support across
-        a wide range of disasters — hurricanes, floods, earthquakes, biological and
-        nuclear hazards, and more.
-      </p>
-      <p class="te-welcome-body">
-        It is trained on over 50,000 doctrinal elements covering the
-        <strong>National Incident Management System (NIMS)</strong> and the
-        <strong>Incident Command System (ICS)</strong>.
-      </p>
+
+      <!-- Two-column body -->
+      <div class="te-welcome-cols">
+        <div class="te-welcome-desc">
+          <p class="te-welcome-body">
+            TE NIMS is an agentic AI harness running a fine-tuned <strong>Gemma 4</strong> LLM built to support
+            Incident Commanders with doctrine-grounded decision support, ICS form generation,
+            geo-spatial awareness, and a cryptographic provenance chain — fully offline, edge-deployable.
+          </p>
+          <p class="te-welcome-body">
+            This demo runs the <strong>Moore 2013 EF5 Tornado</strong> scenario with real NWS track data
+            and xView2 satellite damage assessment. Trained on <strong>50,000+ NIMS/ICS doctrinal elements</strong>.
+          </p>
+          <p class="te-welcome-body" style="font-size:10px;opacity:.6;margin-top:8px;">
+            Submitted to the Kaggle Gemma 4 Good Hackathon · 2026<br>
+            Gemma is a trademark of Google LLC.
+          </p>
+
+          <!-- Resource links -->
+          <div class="te-welcome-links">
+            <a class="te-welcome-link" href="https://github.com/TerminusEstAI/te-nims-demo" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.19c0 4.5 2.87 8.32 6.84 9.67.5.09.68-.22.68-.49v-1.71c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.72 0 0 .84-.28 2.75 1.05A9.38 9.38 0 0 1 12 6.84c.85 0 1.7.12 2.5.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.42.2 2.46.1 2.72.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9v2.81c0 .27.18.59.69.49A10.19 10.19 0 0 0 22 12.19C22 6.58 17.52 2 12 2z"/></svg>
+              GitHub
+            </a>
+            <a class="te-welcome-link" href="https://www.kaggle.com/competitions/gemma-4-good-hackathon" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.825 23.859c-.022.092-.117.141-.281.141h-3.139c-.187 0-.351-.082-.492-.248l-5.178-6.589-1.448 1.374v5.111c0 .235-.117.352-.351.352H5.505c-.236 0-.354-.117-.354-.352V.353c0-.233.118-.353.354-.353h2.431c.234 0 .351.12.351.353v14.343l6.203-6.272c.165-.165.33-.246.495-.246h3.239c.144 0 .236.06.285.18.046.149.034.27-.036.359l-6.555 6.195 6.914 8.728c.07.086.095.189.033.278z"/></svg>
+              Kaggle
+            </a>
+            <a class="te-welcome-link" href="https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf" target="_blank" rel="noopener">
+              🤗 HuggingFace
+            </a>
+          </div>
+        </div>
+
+        <!-- Video placeholder -->
+        <div class="te-welcome-video-wrap">
+          <div class="te-welcome-video-placeholder">
+            <div class="te-welcome-video-icon">▶</div>
+            <div class="te-welcome-video-label">Demo Video</div>
+            <div class="te-welcome-video-sub">Coming soon</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
       <div class="te-welcome-actions">
         <button class="te-welcome-cta te-welcome-tour" autofocus>▶ Demo Walkthrough</button>
-        <button class="te-welcome-cta te-welcome-skip">Skip Demo</button>
+        <button class="te-welcome-cta te-welcome-skip">Skip — Explore Freely</button>
       </div>
     </div>`;
 

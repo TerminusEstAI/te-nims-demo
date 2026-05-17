@@ -1113,14 +1113,8 @@ footer {
     font-size: 12px;
   }
 
-  /* Welcome modal: slide up from bottom on mobile */
-  #te-welcome-overlay { align-items: flex-end; }
-  .te-welcome-box {
-    border-radius: 12px 12px 0 0;
-    width: 100%;
-    max-width: 100%;
-    padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  }
+  /* Welcome modal: centered on mobile, full width */
+  .te-welcome-box { padding: 20px 16px 18px; }
 
   /* Composer: bigger tap targets */
   #composer textarea { font-size: 16px; } /* prevents iOS zoom on focus */
@@ -2056,62 +2050,140 @@ footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.80);
+  backdrop-filter: blur(4px);
 }
 .te-welcome-box {
-  background: rgba(20, 20, 22, 0.92);
+  background: #0d0d0e;
   border: 1px solid var(--te-orange, #e8551a);
-  border-radius: 6px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.8);
-  max-width: 480px;
-  width: 92%;
-  padding: 32px 28px 24px;
-  animation: welcomeFadeIn 0.25s ease;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(232,85,26,.2), 0 24px 64px rgba(0,0,0,0.9);
+  max-width: 780px;
+  width: 95%;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 28px 28px 22px;
+  animation: welcomeFadeIn 0.28s ease;
 }
 @keyframes welcomeFadeIn {
-  from { opacity: 0; transform: translateY(-16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+/* Header */
+.te-welcome-header { border-bottom: 1px solid var(--te-border, #2a2a2c); padding-bottom: 14px; margin-bottom: 18px; }
 .te-welcome-logo {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.te-welcome-tagline {
+  color: var(--te-orange);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 8px;
 }
 .te-welcome-title {
   color: var(--te-white, #fff);
-  font-size: 15px;
-  font-weight: 700;
-  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  opacity: 0.9;
+}
+/* Two-column body */
+.te-welcome-cols {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+@media (max-width: 560px) {
+  .te-welcome-cols { grid-template-columns: 1fr; }
 }
 .te-welcome-body {
   color: var(--te-white, #e8e8e8);
   font-size: 12px;
   line-height: 1.65;
-  opacity: 0.85;
-  margin: 0 0 12px;
+  opacity: 0.82;
+  margin: 0 0 10px;
 }
+/* Resource links */
+.te-welcome-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.te-welcome-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--te-bg-2, #1a1a1c);
+  border: 1px solid var(--te-border, #2a2a2c);
+  border-radius: 3px;
+  color: var(--te-white, #e8e8e8);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  text-decoration: none;
+  transition: border-color 0.12s, color 0.12s;
+}
+.te-welcome-link:hover { border-color: var(--te-orange); color: var(--te-orange); }
+/* Video placeholder */
+.te-welcome-video-wrap {
+  display: flex;
+  align-items: flex-start;
+}
+.te-welcome-video-placeholder {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--te-bg-2, #1a1a1c);
+  border: 2px dashed var(--te-border, #2a2a2c);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+.te-welcome-video-placeholder:hover { border-color: var(--te-orange); }
+.te-welcome-video-icon {
+  font-size: 28px;
+  color: var(--te-orange);
+  opacity: 0.7;
+}
+.te-welcome-video-label { color: var(--te-white); font-size: 12px; font-weight: 700; }
+.te-welcome-video-sub   { color: var(--te-dim, #888); font-size: 10px; }
+/* Actions */
+.te-welcome-actions { display: flex; gap: 10px; }
 .te-welcome-cta {
-  margin-top: 20px;
+  flex: 1;
   background: var(--te-orange, #e8551a);
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   color: #fff;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
-  padding: 9px 22px;
+  padding: 11px 18px;
   transition: opacity 0.12s;
-  display: block;
-  width: 100%;
 }
 .te-welcome-cta:hover { opacity: 0.87; }
-.te-welcome-actions { display: flex; gap: 10px; margin-top: 20px; }
-.te-welcome-actions .te-welcome-cta { flex: 1; margin-top: 0; }
-.te-welcome-skip { background: transparent !important; border: 1px solid var(--te-border, #2a2a2c) !important; color: var(--te-dim, #888) !important; }
-.te-welcome-skip:hover { border-color: var(--te-dim, #888) !important; color: var(--te-white, #fff) !important; opacity: 1 !important; }
+.te-welcome-skip {
+  background: transparent !important;
+  border: 1px solid var(--te-border, #2a2a2c) !important;
+  color: var(--te-dim, #888) !important;
+}
+.te-welcome-skip:hover {
+  border-color: var(--te-dim, #888) !important;
+  color: var(--te-white, #fff) !important;
+  opacity: 1 !important;
+}
 
 /* ── Tour note callout ────────────────────────────────────────────────── */
 .te-tour-note {
