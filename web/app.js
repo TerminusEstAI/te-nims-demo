@@ -1110,6 +1110,7 @@ function buildChatRequest(conversation, hasImages) {
         messages: oaiMessages,
         max_tokens: 1024,
         stream: true,
+        chat_template_kwargs: { enable_thinking: false },
       }),
       streamFormat: "sse",
     };
