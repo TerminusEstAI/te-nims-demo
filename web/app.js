@@ -1118,11 +1118,18 @@ function buildChatRequest(conversation, hasImages) {
       streamFormat: "sse",
     };
   }
+  // Ollama /api/chat expects images as plain base64 strings, not {base64,mime}
+  // objects. Normalize so a mixed conversation (prior vision turn + text turn)
+  // doesn't send malformed messages and get a 400.
+  const ollamaMessages = conversation.map((m) => {
+    if (!Array.isArray(m.images) || !m.images.length) return m;
+    return { ...m, images: m.images.map((img) => typeof img === "string" ? img : img.base64) };
+  });
   return {
     url: `${ollamaBase}/api/chat`,
     body: JSON.stringify({
       model: OLLAMA_MODEL,
-      messages: conversation,
+      messages: ollamaMessages,
       stream: true,
       keep_alive: -1,
       // Stop at </tool_call> for our ReAct protocol.
