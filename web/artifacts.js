@@ -18,6 +18,7 @@ const TYPE_LABELS = {
   map:    "map",
   upload: "upload",
   doc:    "doc",
+  demo:   "demo asset",
 };
 
 let _refreshTimer = null;

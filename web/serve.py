@@ -735,6 +735,10 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             upstream.close()
 
     # ── Artifacts ────────────────────────────────────────────────────
+    # Demo assets bundled with the app — always visible in every session's
+    # Artifacts tab so judges can drag them to chat without uploading anything.
+    DEMO_ASSETS_DIR = Path(__file__).parent / "demo-assets"
+
     def _session_artifact_dirs(self) -> dict:
         """Return session-scoped artifact dirs under the session's chat log dir.
         Falls back to the global ARTIFACT_DIRS for any kind not present in session.
@@ -756,6 +760,25 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         # Also include session uploads dir under the "upload" kind
         upload_dir = _chat_log_dir() / "uploads"
         scan_dirs = {**session_dirs, "upload": upload_dir}
+        # Always include bundled demo assets (hand-drawn org chart etc.)
+        # Use type "demo" so they route through the demo: namespace.
+        demo_dir = self.DEMO_ASSETS_DIR
+        if demo_dir.is_dir():
+            for p in demo_dir.iterdir():
+                if p.is_file() and p.suffix.lower() in ARTIFACT_EXTS:
+                    try:
+                        st = p.stat()
+                    except OSError:
+                        continue
+                    items.append({
+                        "id": f"demo:{p.name}",
+                        "type": "demo",
+                        "name": p.name,
+                        "size": st.st_size,
+                        "mtime": st.st_mtime,
+                        "mtime_iso": _dt.datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
+                        "dir": str(demo_dir),
+                    })
         for kind, root in scan_dirs.items():
             if not root.is_dir():
                 continue
@@ -798,7 +821,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if "/" in name or "\\" in name or name.startswith("..") or name.startswith("."):
             self.send_error(400, "invalid artifact name")
             return
-        # Look in session-scoped dir first, then session uploads, then global.
+        # Look in session-scoped dir first, then session uploads, demo assets, then global.
         session_dirs = self._session_artifact_dirs()
         upload_dir   = _chat_log_dir() / "uploads"
         candidate_roots = []
@@ -806,6 +829,8 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             candidate_roots.append(session_dirs[kind])
         if kind == "upload":
             candidate_roots.append(upload_dir)
+        if kind == "demo":
+            candidate_roots.append(self.DEMO_ASSETS_DIR)
         if kind in ARTIFACT_DIRS:
             candidate_roots.append(ARTIFACT_DIRS[kind])
         if not candidate_roots:
