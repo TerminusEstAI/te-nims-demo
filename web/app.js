@@ -1089,31 +1089,35 @@ async function signChatTurn(question, response, signer = "severian-agent", prevH
 // message has images attached; otherwise Ollama. Two endpoints because
 // Ollama's bundled llama.cpp doesn't yet recognize the gemma4 GGUF
 // architecture so vision must run via our standalone llama-server build.
-// Re-encode an image data URL to JPEG via canvas if it's a format llama.cpp
-// rejects (HEIC, WebP, AVIF). Returns the original dataUrl for JPEG/PNG/GIF/BMP.
+// Re-encode every image through the browser's decoder → canvas → JPEG before
+// sending to llama-server. Always re-encodes (even "safe" JPEG/PNG) so that
+// a file claiming to be JPEG but containing HEIC bytes (iOS canvas fallback)
+// gets corrected before it reaches stb_image. Cost: ~100-300ms per image,
+// negligible compared to vision inference time.
 async function _ensureVisionCompatible(dataUrl, mime) {
-  const safe = /^image\/(jpe?g|png|gif|bmp)$/i;
-  if (safe.test(mime)) return { dataUrl, mime };
-  // Decode via <img> → canvas → JPEG. Safari handles HEIC natively.
-  const img = await new Promise((resolve, reject) => {
-    const el = new Image();
-    el.onload  = () => resolve(el);
-    el.onerror = () => reject(new Error("cannot decode image for vision"));
-    el.src = dataUrl;
-  });
-  const canvas = document.createElement("canvas");
-  canvas.width  = img.naturalWidth  || 1920;
-  canvas.height = img.naturalHeight || 1080;
-  canvas.getContext("2d").drawImage(img, 0, 0);
-  const jpeg = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-  if (!jpeg) return { dataUrl, mime };           // fallback: send as-is
-  const out = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload  = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(jpeg);
-  });
-  return { dataUrl: out, mime: "image/jpeg" };
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload  = () => resolve(el);
+      el.onerror = () => reject(new Error("cannot decode image"));
+      el.src = dataUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width  = img.naturalWidth  || 1920;
+    canvas.height = img.naturalHeight || 1080;
+    canvas.getContext("2d").drawImage(img, 0, 0);
+    const jpeg = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
+    if (!jpeg) return { dataUrl, mime };
+    const out = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload  = () => resolve(fr.result);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(jpeg);
+    });
+    return { dataUrl: out, mime: "image/jpeg" };
+  } catch {
+    return { dataUrl, mime };   // pass through unchanged on decode error
+  }
 }
 
 async function buildChatRequest(conversation, hasImages) {
