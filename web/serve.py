@@ -735,16 +735,28 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             upstream.close()
 
     # ── Artifacts ────────────────────────────────────────────────────
+    def _session_artifact_dirs(self) -> dict:
+        """Return session-scoped artifact dirs under the session's chat log dir.
+        Falls back to the global ARTIFACT_DIRS for any kind not present in session.
+        Session-scoped dirs are created on demand."""
+        base = _chat_log_dir() / "artifacts"
+        return {kind: base / kind for kind in ARTIFACT_DIRS}
+
     def _list_artifacts(self) -> None:
-        """GET /artifacts → JSON list of every image under ARTIFACT_DIRS,
-        newest first. Each entry: {id, type, name, size, mtime_iso, dir}.
+        """GET /artifacts → JSON list of every artifact for this session,
+        newest first. Scans session-scoped dirs so judges never see each
+        other's saved responses, uploads, or generated artifacts.
 
         id is `<type>:<basename>` so /artifacts/<id> can route by type.
         """
         import datetime as _dt
         import json as _json
         items: list[dict] = []
-        for kind, root in ARTIFACT_DIRS.items():
+        session_dirs = self._session_artifact_dirs()
+        # Also include session uploads dir under the "upload" kind
+        upload_dir = _chat_log_dir() / "uploads"
+        scan_dirs = {**session_dirs, "upload": upload_dir}
+        for kind, root in scan_dirs.items():
             if not root.is_dir():
                 continue
             for p in root.iterdir():
@@ -782,23 +794,35 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, "artifact id must be <type>:<basename>")
             return
         kind, _, name = artifact_id.partition(":")
-        root = ARTIFACT_DIRS.get(kind)
-        if root is None:
-            self.send_error(404, f"unknown artifact type: {kind}")
-            return
-        # F-7: also reject any dot-prefixed name (.signing-key.json, .git/HEAD,
-        # any future hidden file) so future config drift that points
-        # ARTIFACT_DIRS at data/ doesn't silently expose secrets.
+        # Reject hidden files / path traversal
         if "/" in name or "\\" in name or name.startswith("..") or name.startswith("."):
             self.send_error(400, "invalid artifact name")
             return
-        path = (root / name).resolve()
-        try:
-            path.relative_to(root.resolve())
-        except ValueError:
-            self.send_error(400, "artifact path escapes its type root")
+        # Look in session-scoped dir first, then session uploads, then global.
+        session_dirs = self._session_artifact_dirs()
+        upload_dir   = _chat_log_dir() / "uploads"
+        candidate_roots = []
+        if kind in session_dirs:
+            candidate_roots.append(session_dirs[kind])
+        if kind == "upload":
+            candidate_roots.append(upload_dir)
+        if kind in ARTIFACT_DIRS:
+            candidate_roots.append(ARTIFACT_DIRS[kind])
+        if not candidate_roots:
+            self.send_error(404, f"unknown artifact type: {kind}")
             return
-        if not path.is_file():
+        path = None
+        root = None
+        for r in candidate_roots:
+            p = (r / name).resolve()
+            try:
+                p.relative_to(r.resolve())
+            except ValueError:
+                continue
+            if p.is_file():
+                path, root = p, r
+                break
+        if path is None:
             self.send_error(404, "artifact not found")
             return
         try:
@@ -842,7 +866,8 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         ts   = int(_time.time())
         fname = f"{ts}-{slug}.html"
 
-        doc_dir = ARTIFACT_DIRS["doc"]
+        # Save to session-scoped dir so judges never see each other's artifacts
+        doc_dir = self._session_artifact_dirs()["doc"]
         doc_dir.mkdir(parents=True, exist_ok=True)
         path = doc_dir / fname
         path.write_text(html, encoding="utf-8")
@@ -3150,20 +3175,33 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, "artifact id must be <type>:<basename>")
             return
         kind, _, name = artifact_id.partition(":")
-        root = ARTIFACT_DIRS.get(kind)
-        if root is None:
-            self.send_error(404, f"unknown artifact type: {kind}")
-            return
         if "/" in name or "\\" in name or name.startswith("..") or name.startswith("."):
             self.send_error(400, "invalid artifact name")
             return
-        path = (root / name).resolve()
-        try:
-            path.relative_to(root.resolve())
-        except ValueError:
-            self.send_error(400, "path escapes artifact root")
+        # Search session dirs first (same order as _serve_artifact)
+        session_dirs = self._session_artifact_dirs()
+        upload_dir   = _chat_log_dir() / "uploads"
+        candidate_roots = []
+        if kind in session_dirs:
+            candidate_roots.append(session_dirs[kind])
+        if kind == "upload":
+            candidate_roots.append(upload_dir)
+        if kind in ARTIFACT_DIRS:
+            candidate_roots.append(ARTIFACT_DIRS[kind])
+        if not candidate_roots:
+            self.send_error(404, f"unknown artifact type: {kind}")
             return
-        if not path.is_file():
+        path = None
+        for r in candidate_roots:
+            p = (r / name).resolve()
+            try:
+                p.relative_to(r.resolve())
+            except ValueError:
+                continue
+            if p.is_file():
+                path = p
+                break
+        if path is None:
             self.send_error(404, "artifact not found")
             return
         path.unlink()
