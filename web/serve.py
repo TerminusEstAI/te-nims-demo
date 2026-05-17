@@ -2136,8 +2136,19 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, "path escapes LIBRARY_DIR")
             return
         if not path.is_file():
-            self.send_error(404, "library doc not found")
-            return
+            # Fall back to session upload directory so users can attach
+            # uploaded PDFs via the same RAG path as Library docs.
+            session_upload_dir = _chat_log_dir() / "uploads"
+            session_candidate = (session_upload_dir / name).resolve()
+            try:
+                session_candidate.relative_to(session_upload_dir.resolve())
+                if session_candidate.is_file():
+                    path = session_candidate
+            except ValueError:
+                pass  # path-escape attempt — ignore
+            if not path.is_file():
+                self.send_error(404, "library doc not found")
+                return
 
         # doc_id keyed off content sha so re-uploaded variants get fresh cache
         st = path.stat()

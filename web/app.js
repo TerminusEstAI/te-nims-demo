@@ -2038,6 +2038,16 @@ async function attachImageUrls(items) {
 // embedding needed. Shows an "indexing…" chip while fetching.
 async function attachArtifactAsDoc(meta) {
   const label = meta.name || "artifact";
+
+  // PDFs: route through document RAG (/document/prepare + chunking).
+  // serve.py now falls back to the session upload dir so uploaded PDFs
+  // work the same as Library PDFs — no binary-as-text garbage.
+  const isPdf = (meta.mime || "").includes("pdf") || /\.pdf$/i.test(label);
+  if (isPdf) {
+    await attachDocuments([{ name: label, title: label, url: meta.url }]);
+    return;
+  }
+
   const placeholder = {
     name:    label,
     title:   label,
