@@ -2842,6 +2842,25 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         uploads_dir.mkdir(parents=True, exist_ok=True)
         dest = uploads_dir / safe_name
         dest.write_bytes(file_bytes)
+
+        # Auto-convert HEIC/HEIF → JPEG so llama.cpp's stb_image (and any
+        # downstream consumer) can decode the photo. iPhone defaults to HEIC.
+        if safe_name.lower().endswith((".heic", ".heif")):
+            try:
+                from pillow_heif import register_heif_opener  # noqa: PLC0415
+                from PIL import Image                          # noqa: PLC0415
+                register_heif_opener()
+                img = Image.open(dest)
+                jpg_name = Path(safe_name).stem + ".jpg"
+                jpg_path = uploads_dir / jpg_name
+                img.convert("RGB").save(jpg_path, "JPEG", quality=92)
+                dest.unlink()                  # drop the original HEIC
+                safe_name = jpg_name
+                dest = jpg_path
+                file_bytes = dest.read_bytes()
+            except Exception as e:
+                print(f"[upload] HEIC convert failed: {e}", flush=True)
+
         url = f"/session-upload/{safe_name}"
         out = _json.dumps({"ok": True, "id": safe_name, "url": url, "size": len(file_bytes)}).encode()
         self.send_response(200)

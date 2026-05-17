@@ -2054,6 +2054,30 @@ async function readImageUrl(url, meta = {}) {
 async function attachImageFiles(files) {
   for (const file of files) {
     try {
+      // HEIC/HEIF: browsers other than Safari can't decode these. Upload
+      // to the server which has pillow-heif; the server converts to JPEG
+      // and we fetch the result back as a normal image.
+      const isHeic = /\.(heic|heif)$/i.test(file.name) ||
+                     file.type === "image/heic" || file.type === "image/heif";
+      if (isHeic) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const r = await fetch("/upload-file", { method: "POST", body: fd });
+        if (!r.ok) throw new Error(`HEIC upload failed: ${r.status}`);
+        const meta = await r.json();
+        const img = await readImageUrl(meta.url, {
+          name: meta.id, sourceUrl: meta.url,
+        });
+        pendingImages.push(img);
+        try {
+          addUploadArtifact({
+            name: meta.id, url: meta.url, mime: "image/jpeg",
+            size: meta.size || 0, source: "heic-converted",
+          });
+        } catch (e) { console.warn("[image attach] artifact register failed:", e); }
+        continue;
+      }
+
       const img = await readImageFile(file);
       pendingImages.push(img);
       // Also surface the file in the Artifacts tab. Use the data URL we
