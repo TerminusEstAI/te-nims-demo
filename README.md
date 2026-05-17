@@ -17,7 +17,7 @@ Built on Google Gemma 4 E4B (4B parameters), fine-tuned on 50,000+ FEMA NIMS and
 ## Quick Start (Docker)
 
 ```bash
-git clone https://github.com/terminus-est-ai/te-nims-demo
+git clone https://github.com/TerminusEstAI/te-nims-demo
 cd te-nims-demo
 docker compose up
 ```
@@ -39,14 +39,38 @@ TE NIMS:   Calls weather/damage/imagery tools → grounds response in NIMS doctr
            to a cryptographic VPO provenance chain.
 ```
 
-**Key capabilities:**
-- **Doctrine-grounded responses** — every recommendation cites NIMS chapter/section
-- **ICS form generation** — produces ICS-201, ICS-204, and others on demand  
-- **Geo-spatial awareness** — displays locations, damage tracks, and staging areas on a live map
-- **VPO provenance chain** — every decision is HMAC-signed and chain-linked for audit
-- **Session memory** — remembers context within an incident session
-- **Voice output** — British male voice reads responses via Piper TTS (offline)
-- **Fully offline** — no cloud API calls; model runs on your hardware
+---
+
+## Features
+
+### AI & Model
+- **Doctrine-grounded responses** — every recommendation cites NIMS chapter/section; no hallucinated procedures
+- **ICS form generation** — produces ICS-201, ICS-204, and others on demand from incident context
+- **Retrieval Augmented Search (RAG)** — 66MB SQLite doctrine corpus; drag any PDF into chat to query it
+- **Session memory** — remembers context within an incident session via Mem0
+- **ReAct tool loop** — model calls geo, damage, imagery, and doctrine tools before answering
+- **Gemma 4 multimodal vision** — upload field photos or hand-drawn org charts; model analyzes and redraws them to NIMS doctrine
+
+### Interface
+- **Guided 14-step demo tour** — floating draggable modal walks judges through every capability with pre-loaded queries
+- **Geo-spatial map** — displays tornado damage track, building damage assessment, and AI-pinned locations in real time
+- **Offline satellite imagery** — ESRI World Imagery tiles (z11–z16) for the Moore, OK area
+- **Voice input** — push-to-talk via Web Speech API (no model download)
+- **Sentence-streaming TTS** — Piper offline TTS begins speaking after the first sentence arrives, not after the full response
+- **Mobile QR upload** — scan a QR code on your phone to push field photos directly into the desktop chat session
+- **Artifact panel** — saves chat responses, generated maps, and uploaded photos; drag any artifact back into chat
+- **Library tab** — browse all NIMS/ICS doctrine PDFs; drag a PDF into chat to RAG over it
+
+### Security & Audit
+- **VPO provenance chain** — every chat turn is HMAC-SHA256 signed and chain-linked; full audit log survives page reload
+- **Session isolation** — each visitor gets their own session cookie; uploads, artifacts, and chain are private
+
+### Deployment
+- **Fully offline** — no cloud API calls; model runs on your hardware via Ollama
+- **Docker single-command install** — `docker compose up` pulls the model and starts everything
+- **HEIC auto-conversion** — iPhone photos (HEIC format) are converted to JPEG server-side via pillow-heif
+- **Systemd-supervised services** — watchdog timer restarts any crashed service within 60 seconds
+- **Self-hosted vision sidecar** — llama-server with Gemma 4 multimodal projector on CUDA for image analysis
 
 ---
 
@@ -60,27 +84,33 @@ The demo loads the **Moore, OK EF5 Tornado (May 20, 2013)**:
 - Pre-loaded: Plaza Towers Elementary, Moore Medical Center, Moore Fire Station 1
 - Offline satellite imagery (ESRI World Imagery, z11–z16)
 
-Type **`/demo`** in the chat to load the scenario and begin.
+Type **`/demo`** in the chat to load the scenario, or click **▶ Demo Walkthrough** to start the guided tour.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Browser  →  serve.py (Python HTTP + proxy)          │
-│              ├── /api/ollama/*  →  Ollama :11434     │
-│              ├── /tts           →  Piper TTS          │
-│              ├── /vpo/sign      →  HMAC-SHA256 signing│
-│              ├── /chain         →  VPO chain ledger   │
-│              └── /demo/*        →  scenario data      │
-│  Ollama   →  severian-ollama (Q4_K_M GGUF, 5.3GB)   │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Browser  →  Caddy (TLS)  →  serve.py :9000                  │
+│              ├── /api/ollama/*   →  Ollama :11434             │
+│              │     └── severian-ollama (text, Q4_K_M, 5.3GB) │
+│              ├── /vision/*       →  llama-server :8081        │
+│              │     └── severian-vision + mmproj (multimodal)  │
+│              ├── /tts            →  Piper TTS (offline)       │
+│              ├── /vpo/sign       →  HMAC-SHA256 signing       │
+│              ├── /chain          →  VPO chain ledger          │
+│              ├── /document/*     →  PDF RAG (pypdfium2 + nomic-embed-text) │
+│              ├── /artifacts/*    →  session-scoped artifact store │
+│              ├── /upload-file    →  HEIC→JPEG + session upload │
+│              └── /demo/*         →  scenario data             │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-- **serve.py** — single-process Python HTTP server; no frameworks
-- **Ollama** — local inference server, runs alongside serve.py in Docker
-- **chunks.db** — 66MB SQLite doctrine corpus (50K+ FEMA NIMS chunks)
+- **serve.py** — single-process threaded Python HTTP server; no frameworks
+- **Ollama** — local inference for text; `severian-ollama` (9-stage SFT fine-tune)
+- **llama-server** — llama.cpp sidecar for vision; Gemma 4 multimodal with mmproj
+- **chunks.db** — 66MB SQLite doctrine corpus (50K+ FEMA NIMS chunks, nomic-embed-text embeddings)
 - **MBTiles** — 21MB offline satellite tile cache for the Moore, OK area
 
 ---
@@ -92,19 +122,18 @@ Type **`/demo`** in the chat to load the scenario and begin.
 | RAM | 8GB | 16GB |
 | Disk | 10GB free | 20GB free |
 | CPU | Any modern x86_64 | 8+ cores |
-| GPU | Not required | NVIDIA CUDA (10x faster) |
+| GPU | Not required | NVIDIA CUDA (10× faster) |
 
-**Token throughput** is governed by hardware. On CPU: ~5 tok/s. With a T4 GPU: ~44 tok/s.
+**Token throughput** is governed by hardware. On CPU: ~5 tok/s. With a T4 GPU: ~44 tok/s (text) / ~47 tok/s (vision).
 
 ---
 
 ## Model
 
 **Base model:** [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it)  
-**Fine-tuned weights:** [tmancino/te-nims-e4b-stage9](https://huggingface.co/tmancino/te-nims-e4b-stage9) (PEFT adapter)  
 **GGUF for inference:** [tmancino/te-nims-e4b-stage9-gguf](https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf) (Q4_K_M, 5.3GB)
 
-Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, and emergency management scenarios. Trained with [MLX](https://github.com/ml-explore/mlx) on Apple Silicon + Unsloth on CUDA.
+Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, and emergency management scenarios. Trained with [MLX](https://github.com/ml-explore/mlx) on Apple Silicon. ODA bench score: **0.916** on the 52-case TE NIMS evaluation set.
 
 ---
 
@@ -114,9 +143,11 @@ Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, an
 "I'm Chief Martinez, Moore FD, IC. EF5 tornado just hit. What's the situation?"
 "What are my immediate ICS priorities for life safety in the first operational period?"
 "Generate an ICS-201 Incident Briefing for this incident."
+"search doctrine for 'what are search team roles.'"
 "Show me Plaza Towers Elementary on the map."
 "What is the closest staging area to Plaza Towers?"
 "Recommend resource typing for urban search-and-rescue at Plaza Towers."
+"Create a doctrinally correct version of the diagram."
 ```
 
 ---
@@ -136,7 +167,7 @@ Third-party attributions: see [NOTICE](NOTICE).
   title   = {TE NIMS: Fine-tuned Gemma 4 for NIMS/ICS Incident Command Decision Support},
   author  = {Terminus Est AI},
   year    = {2026},
-  url     = {https://github.com/terminus-est-ai/te-nims-demo},
+  url     = {https://github.com/TerminusEstAI/te-nims-demo},
   license = {Apache-2.0}
 }
 ```
