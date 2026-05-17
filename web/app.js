@@ -1123,18 +1123,37 @@ async function _ensureVisionCompatible(dataUrl, mime) {
 async function buildChatRequest(conversation, hasImages) {
   if (hasImages) {
     const visionUrl = visionEndpoint();
-    // Translate Ollama-style messages into OpenAI multimodal format,
-    // normalizing any non-mainstream image format to JPEG on the fly.
-    const oaiMessages = await Promise.all(conversation.map(async (m) => {
-      if (Array.isArray(m.images) && m.images.length) {
+    // Only attach images to the LATEST user message. llama.cpp's mtmd
+    // can't handle multiple historical images in one prompt — it errors
+    // with "number of bitmaps does not match number of markers". Strip
+    // images from every prior turn; convert them to plain text references.
+    let lastUserIdx = -1;
+    for (let i = conversation.length - 1; i >= 0; i--) {
+      if (conversation[i].role === "user" &&
+          Array.isArray(conversation[i].images) &&
+          conversation[i].images.length) {
+        lastUserIdx = i;
+        break;
+      }
+    }
+    const oaiMessages = await Promise.all(conversation.map(async (m, i) => {
+      const hasImgs = Array.isArray(m.images) && m.images.length;
+      // Historical image turns: drop the image, keep the text reference
+      if (hasImgs && i !== lastUserIdx) {
+        return {
+          role: m.role,
+          content: (m.content || "") + " [image attached in earlier turn]",
+        };
+      }
+      if (hasImgs && i === lastUserIdx) {
         const parts = [{ type: "text", text: m.content || "" }];
         for (const img of m.images) {
           const rawB64  = typeof img === "string" ? img : img.base64;
           const rawMime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
           const rawUrl  = `data:${rawMime};base64,${rawB64}`;
-          let url = rawUrl, mime = rawMime;
+          let url = rawUrl;
           try {
-            ({ dataUrl: url, mime } = await _ensureVisionCompatible(rawUrl, rawMime));
+            ({ dataUrl: url } = await _ensureVisionCompatible(rawUrl, rawMime));
           } catch { /* send as-is on error */ }
           parts.push({ type: "image_url", image_url: { url } });
         }
