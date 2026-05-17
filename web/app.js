@@ -2722,9 +2722,6 @@ function showWelcomeModal() {
             <a class="te-welcome-link" href="https://huggingface.co/tmancino" target="_blank" rel="noopener">
               🤗 HuggingFace
             </a>
-            <a class="te-welcome-link" href="https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf" target="_blank" rel="noopener">
-              🤗 GGUF Model
-            </a>
           </div>
         </div>
 
