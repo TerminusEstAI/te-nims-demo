@@ -2673,10 +2673,10 @@ initDemo();
   });
 }());
 
-// ── Welcome modal — shown once per session on first load ──────────────
-(function showWelcomeModal() {
-  if (sessionStorage.getItem("te-welcome-seen")) return;
-  sessionStorage.setItem("te-welcome-seen", "1");
+// ── Welcome modal — shown on every page load ──────────────────────────
+// No sessionStorage gate: this is a demo shown to judges who may reload
+// repeatedly. We want them to see it every time they land on the page.
+function showWelcomeModal() {
 
   const overlay = document.createElement("div");
   overlay.id = "te-welcome-overlay";
@@ -2761,4 +2761,12 @@ initDemo();
 
   document.body.appendChild(overlay);
   overlay.querySelector(".te-welcome-cta").focus();
-}());
+}
+
+// Wait for DOM + a brief paint tick so the modal layers correctly over
+// whatever the page has already rendered.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => setTimeout(showWelcomeModal, 80));
+} else {
+  setTimeout(showWelcomeModal, 80);
+}
