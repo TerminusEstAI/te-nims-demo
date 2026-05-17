@@ -33,58 +33,58 @@ const STEPS = [
   },
   {
     n: 5,
+    body: "The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.<br><br>Filter or open any document from the Library. Library contents are available to the AI via Retrieval Augmented Search.",
+    informational: true,
+    tab: "library",
+  },
+  {
+    n: 6,
     body: "TE NIMS let the Incident Commander know he needed to establish his organizational structure. Chief Martinez has drawn out his org chart on a butcher board. TE NIMS allows him to use the upload QR code to take a picture of it and have it analyzed and redrawn to doctrine then stored as an artifact. Many items in a command center are still done by hand for speed and ease of use, but TE NIMS allows them to be turned into AI available artifacts using GEMMA 4's multi-modal vision capabilities.",
     informational: true,
     tab: "upload",
   },
   {
-    n: 6,
+    n: 7,
     body: "Drag and drop the image into the chat area for analysis.",
     query: "redraw this in Ascii.",
     tab: "artifacts",
     waitForImage: true,
   },
   {
-    n: 7,
+    n: 8,
     body: "TE NIMS can use GEMMA's multimodal capabilities to leverage its doctrinal knowledge.",
     query: "Create a doctrinally correct version of the diagram.",
   },
   {
-    n: 8,
+    n: 9,
     body: "TE NIMS can save any chat response as a standalone HTML artifact. Run /save to capture the previous answer — it appears in the Artifacts tab.",
     query: "/save",
     tab: "artifacts",
   },
   {
-    n: 9,
+    n: 10,
     body: "TE NIMS is fully geo-aware. Future work will include TAK and WebEOC cross-compatibility. The Track button on the map shows a simulated damage track, and the Buildings button shows building damage. Both were created with real-time tools by TE NIMS Labs that will be integrated into future versions — allowing First Responders to instantly estimate damage by building type.",
     query: "What building types are most at risk in the Moore tornado damage corridor?",
   },
   {
-    n: 10,
+    n: 11,
     body: "Get operationally specific. Ask for resource typing tied to a real location on the map.",
     query: "Recommend resource typing for urban search-and-rescue at Plaza Towers Elementary.",
   },
   {
-    n: 11,
+    n: 12,
     body: "Geo-spatial awareness is critical to disaster planning. TE NIMS can display critical locations it is tracking for an incident in real time.",
     informational: true,
   },
   {
-    n: 12,
+    n: 13,
     body: "Now Chief Martinez needs to know where the closest Search and Rescue element is located.",
     query: "What is the closest staging area to the Plaza Elementary?",
   },
   {
-    n: 13,
+    n: 14,
     body: "Now the Incident Commander needs to know their location so he can plan the operation.",
     query: "Show me Moore Fire Station 1.",
-  },
-  {
-    n: 14,
-    body: "The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.",
-    informational: true,
-    tab: "library",
   },
 ];
 
