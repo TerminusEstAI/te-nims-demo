@@ -841,12 +841,12 @@ async function initEngine() {
     const model = statusData?.model ?? `TE NIMS`;
 
     appendSystemMsg(`<pre style="font-family:monospace;font-size:11px;line-height:1.35;margin:0;padding:0">` +
-`<span style="color:#e8551a"> ████████╗</span><span style="color:#fff">███████╗</span>    <span style="color:#e8551a">  █████╗  ██╗</span>
-<span style="color:#e8551a">    ██╔══╝</span><span style="color:#fff">██╔════╝</span>    <span style="color:#e8551a"> ██╔══██╗ ██║</span>
-<span style="color:#e8551a">    ██║   </span><span style="color:#fff">█████╗  </span>    <span style="color:#e8551a"> ███████║ ██║</span>
-<span style="color:#e8551a">    ██║   </span><span style="color:#fff">██╔══╝  </span>    <span style="color:#e8551a"> ██╔══██║ ██║</span>
-<span style="color:#e8551a">    ██║   </span><span style="color:#fff">███████╗</span>    <span style="color:#e8551a"> ██║  ██║ ██║</span>
-<span style="color:#e8551a">    ╚═╝   </span><span style="color:#fff">╚══════╝</span>    <span style="color:#e8551a"> ╚═╝  ╚═╝ ╚═╝</span>
+`<span style="color:#e8551a"> ████████╗</span><span style="color:#fff">███████╗</span>    <span style="color:#e8551a">██╗  ██╗██╗███╗   ███╗███████╗</span>
+<span style="color:#e8551a">    ██╔══╝</span><span style="color:#fff">██╔════╝</span>    <span style="color:#e8551a">████╗ ██║██║████╗ ████║██╔════╝</span>
+<span style="color:#e8551a">    ██║   </span><span style="color:#fff">█████╗  </span>    <span style="color:#e8551a">██╔██╗██║██║██╔████╔██║███████╗</span>
+<span style="color:#e8551a">    ██║   </span><span style="color:#fff">██╔══╝  </span>    <span style="color:#e8551a">██║╚████║██║██║╚██╔╝██║╚════██║</span>
+<span style="color:#e8551a">    ██║   </span><span style="color:#fff">███████╗</span>    <span style="color:#e8551a">██║ ╚███║██║██║ ╚═╝ ██║███████║</span>
+<span style="color:#e8551a">    ╚═╝   </span><span style="color:#fff">╚══════╝</span>    <span style="color:#e8551a">╚═╝  ╚══╝╚═╝╚═╝     ╚═╝╚══════╝</span>
 
 <span style="opacity:.55">  Terminus Est AI  ·  </span><span style="color:#fff">TE NIMS Disaster Decision Support on the edge.</span>
 
