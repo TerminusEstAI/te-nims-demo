@@ -1107,7 +1107,7 @@ async function _ensureVisionCompatible(dataUrl, mime) {
     canvas.height = img.naturalHeight || 1080;
     canvas.getContext("2d").drawImage(img, 0, 0);
     const jpeg = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-    if (!jpeg) return { dataUrl, mime };
+    if (!jpeg) throw new Error("canvas.toBlob produced null");
     const out = await new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onload  = () => resolve(fr.result);
@@ -1115,18 +1115,20 @@ async function _ensureVisionCompatible(dataUrl, mime) {
       fr.readAsDataURL(jpeg);
     });
     return { dataUrl: out, mime: "image/jpeg" };
-  } catch {
-    return { dataUrl, mime };   // pass through unchanged on decode error
+  } catch (e) {
+    // Don't pass through undecodable bytes — caller will skip this image
+    throw new Error(`image normalization failed: ${e.message}`);
   }
 }
 
 async function buildChatRequest(conversation, hasImages) {
   if (hasImages) {
     const visionUrl = visionEndpoint();
-    // Only attach images to the LATEST user message. llama.cpp's mtmd
-    // can't handle multiple historical images in one prompt — it errors
-    // with "number of bitmaps does not match number of markers". Strip
-    // images from every prior turn; convert them to plain text references.
+    // Vision requests: send ONLY system prompt(s) + latest user message
+    // with images. Conversation history is dropped because llama.cpp's
+    // mtmd can't reliably reconcile historical assistant responses with
+    // image markers in the chat template — produces 400s with bitmap
+    // and marker count mismatches.
     let lastUserIdx = -1;
     for (let i = conversation.length - 1; i >= 0; i--) {
       if (conversation[i].role === "user" &&
@@ -1136,30 +1138,29 @@ async function buildChatRequest(conversation, hasImages) {
         break;
       }
     }
-    const oaiMessages = await Promise.all(conversation.map(async (m, i) => {
+    const trimmed = [
+      ...conversation.filter((m) => m.role === "system"),
+      conversation[lastUserIdx],
+    ].filter(Boolean);
+
+    const oaiMessages = await Promise.all(trimmed.map(async (m) => {
       const hasImgs = Array.isArray(m.images) && m.images.length;
-      // Historical image turns: drop the image, keep the text reference
-      if (hasImgs && i !== lastUserIdx) {
-        return {
-          role: m.role,
-          content: (m.content || "") + " [image attached in earlier turn]",
-        };
-      }
-      if (hasImgs && i === lastUserIdx) {
-        const parts = [{ type: "text", text: m.content || "" }];
-        for (const img of m.images) {
-          const rawB64  = typeof img === "string" ? img : img.base64;
-          const rawMime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
-          const rawUrl  = `data:${rawMime};base64,${rawB64}`;
-          let url = rawUrl;
-          try {
-            ({ dataUrl: url } = await _ensureVisionCompatible(rawUrl, rawMime));
-          } catch { /* send as-is on error */ }
-          parts.push({ type: "image_url", image_url: { url } });
+      if (!hasImgs) return { role: m.role, content: m.content || "" };
+      const parts = [{ type: "text", text: m.content || "" }];
+      for (const img of m.images) {
+        const rawB64  = typeof img === "string" ? img : img.base64;
+        const rawMime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
+        const rawUrl  = `data:${rawMime};base64,${rawB64}`;
+        let url = rawUrl;
+        try {
+          ({ dataUrl: url } = await _ensureVisionCompatible(rawUrl, rawMime));
+        } catch (e) {
+          console.warn("[vision] image normalize failed, skipping:", e.message);
+          continue;
         }
-        return { role: m.role, content: parts };
+        parts.push({ type: "image_url", image_url: { url } });
       }
-      return { role: m.role, content: m.content || "" };
+      return { role: m.role, content: parts };
     }));
     return {
       url: `${visionUrl}/v1/chat/completions`,
