@@ -16,7 +16,7 @@ Built on Google Gemma 4 E4B (4B parameters), fine-tuned on 50,000+ FEMA NIMS and
 
 The live demo includes a **15-step guided tutorial** that walks through every capability — doctrine-grounded AI responses, ICS form generation, Gemma 4 multimodal vision (upload a hand-drawn org chart and have it redrawn to doctrine), geo-spatial incident map, PDF RAG, voice I/O, and a cryptographic audit chain.
 
-Click **▶ Demo Walkthrough** on the splash screen to begin.
+Click <img src="https://img.shields.io/badge/%E2%96%B6%20Demo%20Walkthrough-e8551a?style=flat&labelColor=e8551a&color=e8551a&logo=&logoColor=white" alt="▶ Demo Walkthrough" height="20"/> on the splash screen to begin.
 
 ---
 
@@ -160,7 +160,7 @@ Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, an
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+CC BY 4.0 — see [LICENSE](LICENSE).
 
 Third-party attributions: see [NOTICE](NOTICE).
 
@@ -174,7 +174,7 @@ Third-party attributions: see [NOTICE](NOTICE).
   author  = {Terminus Est AI},
   year    = {2026},
   url     = {https://github.com/TerminusEstAI/te-nims-demo},
-  license = {Apache-2.0}
+  license = {CC-BY-4.0}
 }
 ```
 
