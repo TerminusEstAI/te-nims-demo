@@ -182,7 +182,19 @@ function makeThumb(item) {
   });
   card.appendChild(trash);
 
-  card.addEventListener("click", () => openModal(item, { url, isImage }));
+  card.addEventListener("click", (ev) => {
+    // First click selects the card (shows trashcan persistently).
+    // Second click opens the modal. Click elsewhere deselects.
+    if (!card.classList.contains("artifact-selected")) {
+      // Deselect any other selected card
+      document.querySelectorAll(".artifact-thumb.artifact-selected")
+        .forEach(el => el.classList.remove("artifact-selected"));
+      card.classList.add("artifact-selected");
+      ev.stopPropagation();
+      return;
+    }
+    openModal(item, { url, isImage });
+  });
   card.addEventListener("dragstart", (ev) => {
     if (!ev.dataTransfer) return;
     const absUrl = new URL(url, window.location.href).href;
@@ -416,6 +428,14 @@ function init() {
         stopPolling();
       }
     });
+  });
+
+  // Deselect artifact cards when clicking outside the grid
+  document.addEventListener("click", (ev) => {
+    if (!ev.target.closest(".artifact-thumb")) {
+      document.querySelectorAll(".artifact-thumb.artifact-selected")
+        .forEach(el => el.classList.remove("artifact-selected"));
+    }
   });
 
   // Modal close + popout handlers

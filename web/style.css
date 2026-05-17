@@ -1168,23 +1168,35 @@ footer {
 .artifact-thumb:active { cursor: grabbing; }
 .artifact-thumb:focus  { outline: 2px solid var(--te-orange); outline-offset: 1px; }
 
-/* Trashcan delete button */
+/* Trashcan delete button — visible on hover OR when card is selected */
 .artifact-delete-btn {
-  display: none;
   position: absolute;
   top: 4px; right: 4px;
-  background: rgba(13,13,14,0.82);
+  background: rgba(13,13,14,0.85);
   border: 1px solid var(--te-orange);
   border-radius: 3px;
   color: var(--te-orange);
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
-  padding: 2px 4px;
-  z-index: 2;
+  padding: 2px 5px;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 }
-.artifact-thumb:hover .artifact-delete-btn { display: block; }
+.artifact-thumb:hover .artifact-delete-btn,
+.artifact-thumb.artifact-selected .artifact-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
 .artifact-delete-btn:hover { background: var(--te-orange); color: #fff; }
+
+/* Selected state — keeps trashcan visible after click so it's clickable */
+.artifact-thumb.artifact-selected {
+  border-color: var(--te-orange);
+  box-shadow: 0 0 0 1px var(--te-orange);
+}
 
 /* Delete confirm modal */
 .artifact-delete-modal-backdrop {
