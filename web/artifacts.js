@@ -9,6 +9,8 @@
 // Pattern mirrors chain.js: lazy-load, render on tab activation, click
 // thumbnail → modal lightbox.
 
+const $ = (id) => document.getElementById(id);
+
 const REFRESH_INTERVAL_MS = 5000;
 const TYPE_LABELS = {
   chart:  "chart",
