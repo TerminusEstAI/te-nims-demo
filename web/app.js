@@ -1173,12 +1173,14 @@ async function buildChatRequest(conversation, hasImages) {
       streamFormat: "sse",
     };
   }
-  // Ollama /api/chat expects images as plain base64 strings, not {base64,mime}
-  // objects. Normalize so a mixed conversation (prior vision turn + text turn)
-  // doesn't send malformed messages and get a 400.
+  // severian-ollama is text-only — strip images from ALL messages.
+  // After a vision turn the conversation history has images:{base64,mime}
+  // objects on prior user messages; sending them to a text model causes
+  // "this model is missing data required for image input" → 500/503.
   const ollamaMessages = conversation.map((m) => {
     if (!Array.isArray(m.images) || !m.images.length) return m;
-    return { ...m, images: m.images.map((img) => typeof img === "string" ? img : img.base64) };
+    const { images: _dropped, ...rest } = m;
+    return rest;
   });
   return {
     url: `${ollamaBase}/api/chat`,
