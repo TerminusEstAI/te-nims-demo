@@ -855,7 +855,7 @@ async function initEngine() {
   health:
 ${checksHtml}
 
-  <span style="opacity:.55">type your question · <code>/demo</code> · <code>/buildings</code> · <code>/track</code> · <code>/tiles</code> · <code>/save</code> · <code>/help</code></span></pre>`);
+  <span style="opacity:.55">type your question · <code>/demo</code> · <code>/buildings</code> · <code>/track</code> · <code>/map</code> · <code>/save</code> · <code>/help</code></span></pre>`);
   }
   // Signal that the boot banner is fully rendered — initDemo() waits for this
   // before appending the scenario card so the chat reads top-down:
@@ -1853,7 +1853,7 @@ const SLASH_COMMANDS = {
     appendSystemMsg(`Tornado track ${nowOn ? "shown" : "hidden"}.`);
     return Promise.resolve();
   },
-  "/tiles": () => {
+  "/map": () => {
     if (!tilesBtn || tilesBtn.hidden) { appendSystemMsg("Map not loaded — run <code>/demo</code> first."); return Promise.resolve(); }
     const nowOn = toggleTileLayer();
     tilesBtn.classList.toggle("active", nowOn);
