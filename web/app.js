@@ -1089,23 +1089,55 @@ async function signChatTurn(question, response, signer = "severian-agent", prevH
 // message has images attached; otherwise Ollama. Two endpoints because
 // Ollama's bundled llama.cpp doesn't yet recognize the gemma4 GGUF
 // architecture so vision must run via our standalone llama-server build.
-function buildChatRequest(conversation, hasImages) {
+// Re-encode an image data URL to JPEG via canvas if it's a format llama.cpp
+// rejects (HEIC, WebP, AVIF). Returns the original dataUrl for JPEG/PNG/GIF/BMP.
+async function _ensureVisionCompatible(dataUrl, mime) {
+  const safe = /^image\/(jpe?g|png|gif|bmp)$/i;
+  if (safe.test(mime)) return { dataUrl, mime };
+  // Decode via <img> → canvas → JPEG. Safari handles HEIC natively.
+  const img = await new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload  = () => resolve(el);
+    el.onerror = () => reject(new Error("cannot decode image for vision"));
+    el.src = dataUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width  = img.naturalWidth  || 1920;
+  canvas.height = img.naturalHeight || 1080;
+  canvas.getContext("2d").drawImage(img, 0, 0);
+  const jpeg = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
+  if (!jpeg) return { dataUrl, mime };           // fallback: send as-is
+  const out = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload  = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(jpeg);
+  });
+  return { dataUrl: out, mime: "image/jpeg" };
+}
+
+async function buildChatRequest(conversation, hasImages) {
   if (hasImages) {
     const visionUrl = visionEndpoint();
-    // Translate Ollama-style messages into OpenAI multimodal format.
-    const oaiMessages = conversation.map((m) => {
+    // Translate Ollama-style messages into OpenAI multimodal format,
+    // normalizing any non-mainstream image format to JPEG on the fly.
+    const oaiMessages = await Promise.all(conversation.map(async (m) => {
       if (Array.isArray(m.images) && m.images.length) {
         const parts = [{ type: "text", text: m.content || "" }];
         for (const img of m.images) {
-          // images are stored as {base64, mime} objects; handle legacy plain strings too
-          const b64  = typeof img === "string" ? img : img.base64;
-          const mime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
-          parts.push({ type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } });
+          const rawB64  = typeof img === "string" ? img : img.base64;
+          const rawMime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
+          const rawUrl  = `data:${rawMime};base64,${rawB64}`;
+          let url = rawUrl, mime = rawMime;
+          try {
+            ({ dataUrl: url, mime } = await _ensureVisionCompatible(rawUrl, rawMime));
+          } catch { /* send as-is on error */ }
+          parts.push({ type: "image_url", image_url: { url } });
         }
         return { role: m.role, content: parts };
       }
       return { role: m.role, content: m.content || "" };
-    });
+    }));
     return {
       url: `${visionUrl}/v1/chat/completions`,
       body: JSON.stringify({
@@ -1327,7 +1359,7 @@ async function runToolRound(out, streamedText, req, signal) {
   out.reset();
 
   // Second pass: final answer (no stop sequences needed here)
-  const req2 = buildChatRequest(conversation, false);
+  const req2 = await buildChatRequest(conversation, false);
   const body2 = JSON.parse(req2.body);
   body2.stop = [];  // don't stop on </tool_call> for the final answer pass
   const resp2 = await fetch(req2.url, {
@@ -1469,7 +1501,7 @@ async function sendQuery(question, images = [], documents = []) {
   document.addEventListener("keydown", onEsc);
 
   try {
-    const req = buildChatRequest(conversation, images.length > 0);
+    const req = await buildChatRequest(conversation, images.length > 0);
     if (req.error) {
       out.update(`\n\n_[${req.error}]_`);
       throw new Error(req.error);
@@ -1934,53 +1966,21 @@ function renderImageChips() {
   });
 }
 
-// llama.cpp's stb_image decoder only handles jpg/png/gif/bmp/psd/tga/hdr/pic/pnm.
-// HEIC, WebP-with-alpha, and AVIF will fail with "failed to decode image bytes".
-// Re-encode via canvas to JPEG so the vision model receives a format it
-// can actually parse. The browser's native decoder reads HEIC (Safari)
-// and any other format <img> supports; we hand it back as JPEG bytes.
-async function _normalizeBlobToJpeg(blob, hintName = "image") {
-  const supported = /^image\/(jpe?g|png|gif|bmp)$/i;
-  if (supported.test(blob.type)) {
-    // Already a format llama.cpp handles — pass through unchanged
-    return { blob, name: hintName, mime: blob.type };
-  }
-  const url = URL.createObjectURL(blob);
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const el = new Image();
-      el.onload  = () => resolve(el);
-      el.onerror = () => reject(new Error("browser cannot decode image"));
-      el.src = url;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width  = img.naturalWidth  || 1920;
-    canvas.height = img.naturalHeight || 1080;
-    canvas.getContext("2d").drawImage(img, 0, 0);
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-    return {
-      blob: out || blob,
-      name: hintName.replace(/\.[^.]+$/, "") + ".jpg",
-      mime: "image/jpeg",
-    };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-async function readImageFile(file) {
-  if (!file.type.startsWith("image/") && !/\.(heic|heif|avif)$/i.test(file.name)) {
-    throw new Error(`not an image: ${file.type}`);
-  }
-  const norm = await _normalizeBlobToJpeg(file, file.name || "pasted-image");
-  const dataUrl = await new Promise((resolve, reject) => {
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error(`not an image: ${file.type}`));
+      return;
+    }
     const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result);
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const base64 = String(dataUrl).split(",", 2)[1] || "";
+      resolve({ name: file.name || "pasted-image", mime: file.type, dataUrl, base64 });
+    };
     reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(norm.blob);
+    reader.readAsDataURL(file);
   });
-  const base64 = String(dataUrl).split(",", 2)[1] || "";
-  return { name: norm.name, mime: norm.mime, dataUrl, base64 };
 }
 
 // Fetch an image already served by serve.py (artifact URL) and convert it
@@ -2005,21 +2005,19 @@ async function readImageUrl(url, meta = {}) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
   const blob = await resp.blob();
-  // Allow .heic/.heif/.avif by extension even if Content-Type lies
-  const isImage = blob.type.startsWith("image/") ||
-                  /\.(heic|heif|avif)$/i.test(meta.name || url);
-  if (!isImage) throw new Error(`not an image: ${blob.type || "unknown"}`);
-  const norm = await _normalizeBlobToJpeg(blob, meta.name || url.split("/").pop() || "image");
+  if (!blob.type.startsWith("image/")) {
+    throw new Error(`not an image: ${blob.type || "unknown"}`);
+  }
   const dataUrl = await new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload  = () => resolve(r.result);
     r.onerror = () => reject(r.error);
-    r.readAsDataURL(norm.blob);
+    r.readAsDataURL(blob);
   });
   const base64 = String(dataUrl).split(",", 2)[1] || "";
   return {
-    name:      norm.name,
-    mime:      norm.mime,
+    name:      meta.name || url.split("/").pop() || "image",
+    mime:      blob.type,
     dataUrl,
     base64,
     sourceUrl: meta.sourceUrl || url,
@@ -2305,9 +2303,21 @@ window.addEventListener("te:attach-files", async (e) => {
   const docs   = files.filter((f) => !images.includes(f));
   if (images.length) await attachImageFiles(images);
   for (const d of docs) {
-    const mime = d.type || "application/octet-stream";
-    const url  = URL.createObjectURL(d);
-    await attachArtifactAsDoc({ name: d.name, url, mime });
+    // Read non-image files as text client-side (avoids server-side lookup
+    // that would fail for blob: URLs — the file hasn't been uploaded yet).
+    const text = await d.text().catch(() => "");
+    if (!text) continue;
+    const placeholder = {
+      name:    d.name,
+      title:   d.name,
+      url:     URL.createObjectURL(d),
+      status:  "ready",
+      doc_id:  null,
+      chunks:  1,
+      preText: text.slice(0, 12000),
+    };
+    pendingDocuments.push(placeholder);
+    renderImageChips();
   }
 });
 
