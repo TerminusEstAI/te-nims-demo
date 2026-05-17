@@ -1096,8 +1096,11 @@ function buildChatRequest(conversation, hasImages) {
     const oaiMessages = conversation.map((m) => {
       if (Array.isArray(m.images) && m.images.length) {
         const parts = [{ type: "text", text: m.content || "" }];
-        for (const b64 of m.images) {
-          parts.push({ type: "image_url", image_url: { url: `data:image/png;base64,${b64}` } });
+        for (const img of m.images) {
+          // images are stored as {base64, mime} objects; handle legacy plain strings too
+          const b64  = typeof img === "string" ? img : img.base64;
+          const mime = typeof img === "string" ? "image/jpeg" : (img.mime || "image/jpeg");
+          parts.push({ type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } });
         }
         return { role: m.role, content: parts };
       }
@@ -1436,7 +1439,9 @@ async function sendQuery(question, images = [], documents = []) {
   // routing to the vision endpoint.
   const userMsg = { role: "user", content: question };
   if (images.length) {
-    userMsg.images = images.map((img) => img.base64);
+    // Store {base64, mime} so buildChatRequest can set the correct Content-Type
+    // in the data URI — llama-server rejects images with a mismatched MIME type.
+    userMsg.images = images.map((img) => ({ base64: img.base64, mime: img.mime || "image/jpeg" }));
   }
   conversation.push(userMsg);
 
