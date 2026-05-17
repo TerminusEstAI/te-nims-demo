@@ -1133,8 +1133,8 @@ footer {
  */
 .artifacts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 6px;
   padding: 4px;
   overflow-y: auto;
   align-content: start;
@@ -1246,7 +1246,7 @@ footer {
 
 .artifact-thumb img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   background: var(--te-bg-2);
   display: block;
@@ -1255,10 +1255,11 @@ footer {
 .artifact-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  font-size: 11px;
+  gap: 3px;
+  padding: 3px 5px;
+  font-size: 9px;
   border-top: 1px solid var(--te-border);
+  overflow: hidden;
 }
 .artifact-type {
   text-transform: uppercase;
@@ -1278,8 +1279,8 @@ footer {
 .artifact-type-doc    { background: rgba(100, 149, 237, 0.15); color: #6495ed; }
 
 /* Doc artifact card — no image, just an icon + title */
-.artifact-doc-icon  { font-size: 36px; line-height: 1; margin: 8px auto 4px; text-align: center; }
-.artifact-doc-title { font-size: 11px; color: var(--te-white); text-align: center; padding: 0 4px 6px;
+.artifact-doc-icon  { font-size: 24px; line-height: 1; margin: 6px auto 2px; text-align: center; }
+.artifact-doc-title { font-size: 9px; color: var(--te-white); text-align: center; padding: 0 3px 4px;
                       overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
                       -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 
@@ -1290,11 +1291,7 @@ footer {
   white-space: nowrap;
   color: var(--te-white);
 }
-.artifact-time {
-  color: var(--te-dim);
-  font-size: 10px;
-  flex-shrink: 0;
-}
+.artifact-time { display: none; }  /* hidden at thumbnail size — visible on hover/modal */
 
 /* ── Artifact modal (full-size lightbox) ────────────────────────────── */
 /* Modal backdrop — clicking it closes (handled in artifacts.js).
