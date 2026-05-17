@@ -105,7 +105,7 @@ export function initMap(scenario) {
 
   // Local MBTiles served by serve.py at /tiles/{z}/{x}/{y}.png.
   // FOB-deployable: zero network calls. Coverage = whatever is in
-  // imagery-cache/*.mbtiles (default: ESRI World Imagery, OKC metro,
+  // imagery-cache/*.mbtiles (offline fallback — re-cache from USGS tiles for FOB use;
   // zoom 14-16). Run `python3 serve.py` to start the tile server.
   //
   // If the local mbtiles is missing / out-of-bounds, individual tiles
@@ -119,14 +119,18 @@ export function initMap(scenario) {
   // or zooming to areas not in the offline cache.
   const _BLANK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
-  _tileLayer = L.tileLayer("/tiles/{z}/{x}/{y}.png", {
-    minZoom: scenario.minZoom || 11,
-    maxZoom: scenario.maxZoom || 16,
-    minNativeZoom: 11,
-    maxNativeZoom: 16,
-    attribution: "ESRI World Imagery (offline cache)",
-    errorTileUrl: _BLANK,
-  }).addTo(map);
+  // Primary: USGS National Map Imagery — U.S. federal public-domain imagery.
+  // Fallback errorTileUrl shows blank tile when offline (e.g. thumb-drive FOB).
+  _tileLayer = L.tileLayer(
+    "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
+    {
+      minZoom: scenario.minZoom || 11,
+      maxZoom: scenario.maxZoom || 16,
+      maxNativeZoom: 16,
+      attribution: 'Imagery: <a href="https://www.usgs.gov/" target="_blank">U.S. Geological Survey</a>',
+      errorTileUrl: _BLANK,
+    }
+  ).addTo(map);
 
   // Drop the scenario's pre-defined markers
   for (const m of scenario.markers || []) {

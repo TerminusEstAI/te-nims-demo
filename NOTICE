@@ -54,8 +54,9 @@ Piper TTS (en_GB-alan-medium voice)
   https://huggingface.co/rhasspy/piper-voices
 
 -------------------------------------------------------------------------------
-ESRI World Imagery (offline tile cache — Moore, OK area)
-  Source: ESRI / Maxar / Earthstar Geographics
-  MBTiles cache covers zoom 11–16, Moore/OKC metro area only.
-  Tiles downloaded for offline use under ESRI standard license terms.
-  This cache is for demonstration purposes only and is not for redistribution.
+Base Imagery — USGS National Map (USGSImageryOnly)
+  Source: U.S. Department of the Interior | U.S. Geological Survey
+  https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer
+  U.S. federal government work; public domain under 17 U.S.C. § 105.
+  Tiles served live from the USGS National Map service for the live demo.
+  Offline MBTiles cache (Docker/FOB path) should be re-generated from USGS tiles.
