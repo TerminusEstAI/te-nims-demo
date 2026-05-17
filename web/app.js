@@ -12,7 +12,7 @@ import { initMap, addPin, getMap, zoomTo,
          toggleTileLayer } from "./map.js";
 import { initFormsPanel }      from "./form.js";
 import { initChainPanel, classifyKey, getLastBlockHash } from "./chain.js";
-import { initVoice, speak, stopSpeaking } from "./voice.js";
+import { initVoice, speak, enqueueSpeech, stopSpeaking, isTtsEnabled } from "./voice.js";
 import { openArtifactUrl, refreshArtifacts, addUploadArtifact } from "./artifacts.js";
 import * as persist                     from "./persistence.js";
 import { startTour, advanceTour, isTourActive, resetTour } from "./tour.js";
@@ -1546,10 +1546,28 @@ async function sendQuery(question, images = [], documents = []) {
     }
 
     let streamedText = "";
+    let _ttsBuf = "";   // accumulates tokens until a sentence boundary
     await readStream(resp, req.streamFormat, (tok) => {
       streamedText += tok;
       out.update(tok);
+      // Sentence-streaming TTS: fire enqueueSpeech() at each sentence
+      // boundary so Piper starts generating audio before the full
+      // response is done — cuts perceived latency to ~first sentence.
+      if (isTtsEnabled()) {
+        _ttsBuf += tok;
+        // Match a completed sentence: text ending with .!?… followed by
+        // whitespace or end of buffer. Require at least 12 chars to avoid
+        // firing on "Step 1." or "ICS-201." abbreviations.
+        let m;
+        const SENT_RE = /^(.{12,}?[.!?…]+)(\s+)/;
+        while ((m = SENT_RE.exec(_ttsBuf))) {
+          enqueueSpeech(m[1]);
+          _ttsBuf = _ttsBuf.slice(m[0].length);
+        }
+      }
     });
+    // Speak any trailing text that didn't end with punctuation
+    if (isTtsEnabled() && _ttsBuf.trim().length > 4) enqueueSpeech(_ttsBuf.trim());
 
     // ── ReAct tool loop ───────────────────────────────────────────────
     // If the model emitted a <tool_call> block, execute the tool and stream
@@ -1643,8 +1661,7 @@ async function sendQuery(question, images = [], documents = []) {
     // so a reload right after stream-end still shows the turn.
     const assistantRender = { role: "assistant", text: acc };
     renders.push(assistantRender);
-    // If TTS is enabled, speak the response. Strip markdown first.
-    speak(acc);
+    // TTS was streamed sentence-by-sentence above; nothing to do here.
     // VPO sign + chain — runs in the background so it never blocks the UI.
     // The input re-enables immediately after the stream; the signature footer
     // appears on the bubble a moment later once signing completes.
