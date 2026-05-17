@@ -250,19 +250,26 @@ function _confirmDelete(item) {
 }
 
 async function _doDelete(item) {
-  if (item._clientUpload) {
-    _uploadArtifacts = _uploadArtifacts.filter(u => u.id !== item.id);
-    _persistUploads();
-    _lastFingerprint = "";   // force re-render
-    refresh({ force: true }).catch(() => {});
-    return;
+  // Try server-side delete in two cases:
+  //   1. Not a pure client entry — use the server ID directly
+  //   2. Client entry whose URL points to a server-saved upload (mobile/desktop
+  //      upload polled from /uploads) — translate to "upload:<name>" id
+  const isServerBacked = !item._clientUpload ||
+                         (typeof item.url === "string" && item.url.startsWith("/session-upload/"));
+  if (isServerBacked) {
+    const serverId = item._clientUpload ? `upload:${item.name}` : item.id;
+    try {
+      await fetch(`/artifacts/${encodeURIComponent(serverId)}`, { method: "DELETE" });
+    } catch (e) {
+      console.warn("[artifacts] server delete failed:", e);
+    }
   }
-  try {
-    const res = await fetch(`/artifacts/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-    if (!res.ok) throw new Error(`${res.status}`);
-  } catch (e) {
-    console.warn("[artifacts] delete failed:", e);
-  }
+  // Always remove matching client entries by id AND by name+url so the
+  // sessionStorage-persisted copy doesn't resurrect this on next reload.
+  _uploadArtifacts = _uploadArtifacts.filter(u =>
+    u.id !== item.id && !(u.name === item.name && u.url === item.url)
+  );
+  _persistUploads();
   _lastFingerprint = "";
   refresh({ force: true }).catch(() => {});
 }
@@ -333,6 +340,18 @@ async function refresh({ force = false } = {}) {
   // dedupe against client entries by basename to avoid double-listing.
   const serverItems = payload.items || [];
   const serverNames = new Set(serverItems.filter(s => s.type === "upload").map(s => s.name));
+  // Drop client entries whose server file is gone (deleted, expired, etc.).
+  // Pure data: URLs survive (no server backing). Anything pointing at
+  // /session-upload/ must have a matching server entry to be shown.
+  const purgedClient = _uploadArtifacts.filter((c) => {
+    const isServerBacked = typeof c.url === "string" && c.url.startsWith("/session-upload/");
+    if (!isServerBacked) return true;
+    return serverNames.has(c.name);
+  });
+  if (purgedClient.length !== _uploadArtifacts.length) {
+    _uploadArtifacts = purgedClient;
+    _persistUploads();
+  }
   const clientItems = _uploadArtifacts.filter(c => !serverNames.has(c.name));
   const items = [...clientItems, ...serverItems]
     .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
