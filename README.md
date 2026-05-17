@@ -8,9 +8,15 @@ Built on Google Gemma 4 E4B (4B parameters), fine-tuned on 50,000+ FEMA NIMS and
 
 ---
 
-## Live Demo
+## 🚀 Try the Live Demo
 
-**Try it now:** [https://demo.terminusest.ai](https://demo.terminusest.ai) *(No installation required)*
+**No installation required.** A fully-deployed instance runs on Google Cloud at:
+
+### **[https://demo.terminusest.ai](https://demo.terminusest.ai)**
+
+The live demo includes a **15-step guided tutorial** that walks through every capability — doctrine-grounded AI responses, ICS form generation, Gemma 4 multimodal vision (upload a hand-drawn org chart and have it redrawn to doctrine), geo-spatial incident map, PDF RAG, voice I/O, and a cryptographic audit chain.
+
+Click **▶ Demo Walkthrough** on the splash screen to begin.
 
 ---
 
@@ -52,9 +58,9 @@ TE NIMS:   Calls weather/damage/imagery tools → grounds response in NIMS doctr
 - **Gemma 4 multimodal vision** — upload field photos or hand-drawn org charts; model analyzes and redraws them to NIMS doctrine
 
 ### Interface
-- **Guided 14-step demo tour** — floating draggable modal walks judges through every capability with pre-loaded queries
+- **Guided 15-step demo tour** — floating draggable modal walks judges through every capability with pre-loaded queries
 - **Geo-spatial map** — displays tornado damage track, building damage assessment, and AI-pinned locations in real time
-- **Offline satellite imagery** — ESRI World Imagery tiles (z11–z16) for the Moore, OK area
+- **Base imagery** — USGS National Map (public domain, USGSImageryOnly)
 - **Voice input** — push-to-talk via Web Speech API (no model download)
 - **Sentence-streaming TTS** — Piper offline TTS begins speaking after the first sentence arrives, not after the full response
 - **Mobile QR upload** — scan a QR code on your phone to push field photos directly into the desktop chat session
@@ -62,7 +68,7 @@ TE NIMS:   Calls weather/damage/imagery tools → grounds response in NIMS doctr
 - **Library tab** — browse all NIMS/ICS doctrine PDFs; drag a PDF into chat to RAG over it
 
 ### Security & Audit
-- **VPO provenance chain** — every chat turn is HMAC-SHA256 signed and chain-linked; full audit log survives page reload
+- **VPO provenance chain** — every chat turn is HMAC-SHA256 signed and chain-linked (demo signing key — illustrative chain for audit trail demonstration); full audit log survives page reload
 - **Session isolation** — each visitor gets their own session cookie; uploads, artifacts, and chain are private
 
 ### Deployment
@@ -82,7 +88,7 @@ The demo loads the **Moore, OK EF5 Tornado (May 20, 2013)**:
 - Tornado track from real NWS data  
 - Building damage from xView2 satellite assessment
 - Pre-loaded: Plaza Towers Elementary, Moore Medical Center, Moore Fire Station 1
-- Offline satellite imagery (ESRI World Imagery, z11–z16)
+- Base imagery from USGS National Map (public domain)
 
 Type **`/demo`** in the chat to load the scenario, or click **▶ Demo Walkthrough** to start the guided tour.
 
