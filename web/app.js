@@ -2276,7 +2276,9 @@ composer.addEventListener("drop", async (e) => {
     }
   }
 
-  const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith("image/"));
+  const files = Array.from(e.dataTransfer.files || []).filter(
+    (f) => f.type.startsWith("image/") || /\.(heic|heif|avif)$/i.test(f.name)
+  );
   if (files.length) {
     await attachImageFiles(files);
     return;
@@ -2292,6 +2294,20 @@ composer.addEventListener("drop", async (e) => {
     .map((u) => ({ url: u.href, name: decodeURIComponent(u.pathname.split("/").pop() || "") }));
   if (artifactUrls.length) {
     await attachImageUrls(artifactUrls);
+  }
+});
+
+// Browse button in Upload tab dispatches this instead of a synthetic DragEvent
+// (which doesn't reliably propagate files cross-browser).
+window.addEventListener("te:attach-files", async (e) => {
+  const files = Array.from(e.detail?.files || []);
+  const images = files.filter((f) => f.type.startsWith("image/") || /\.(heic|heif|avif)$/i.test(f.name));
+  const docs   = files.filter((f) => !images.includes(f));
+  if (images.length) await attachImageFiles(images);
+  for (const d of docs) {
+    const mime = d.type || "application/octet-stream";
+    const url  = URL.createObjectURL(d);
+    await attachArtifactAsDoc({ name: d.name, url, mime });
   }
 });
 

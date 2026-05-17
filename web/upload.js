@@ -90,26 +90,19 @@ export function initUploadPanel() {
   // and surface each one as an artifact in the Artifacts tab.
   _startUploadPolling();
 
-  // Browse button → click the existing chat file-attach input
+  // Browse button — open a file picker and dispatch a custom event that
+  // app.js handles directly. Avoids the fragile synthetic-DragEvent path
+  // where dataTransfer.files is not reliably propagated across browsers.
   document.getElementById("upload-browse-btn")
     ?.addEventListener("click", () => {
-      // The existing chat composer has an img-attach or file attach input;
-      // fall back to creating a temporary input if not present.
-      const existing = document.getElementById("img-attach") || document.getElementById("doc-attach");
-      if (existing) { existing.click(); return; }
       const tmp = document.createElement("input");
       tmp.type = "file";
       tmp.accept = "image/*,application/pdf,.txt,.json,.csv";
       tmp.multiple = true;
       tmp.addEventListener("change", () => {
-        const dropZone = document.getElementById("composer");
-        if (!dropZone || !tmp.files?.length) return;
-        const dt = new DataTransfer();
-        [...tmp.files].forEach(f => dt.items.add(f));
-        // dataTransfer is read-only on DragEvent — pass it via the init dict
-        dropZone.dispatchEvent(new DragEvent("drop", {
-          bubbles: true, cancelable: true, dataTransfer: dt,
-        }));
+        const files = [...(tmp.files || [])];
+        if (!files.length) return;
+        window.dispatchEvent(new CustomEvent("te:attach-files", { detail: { files } }));
       });
       tmp.click();
     });
