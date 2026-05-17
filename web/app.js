@@ -65,8 +65,10 @@ function visionEndpoint() {
   const params = new URLSearchParams(window.location.search);
   const v = params.get("vision");
   if (v) return v.replace(/\/+$/, "");
-  // Fall back to Ollama proxy — severian-vision supports multimodal natively
-  return window.location.origin + "/api/ollama";
+  // Default: standalone llama-server sidecar at /vision/* (Caddy-proxied).
+  // Ollama's bundled llama.cpp lacks gemma4 multimodal — text path only.
+  // Override via ?vision=<url> for local dev (e.g. http://localhost:8081).
+  return window.location.origin + "/vision";
 }
 
 // Canonical ICS forms — built into the system prompt so the model has
@@ -1374,12 +1376,18 @@ async function sendQuery(question, images = [], documents = []) {
   // model is instructed to ground its answer in the chunks and cite the
   // page numbers. Done before the user message lands in `conversation`
   // so the LLM sees: [system prompt, ..., system context, user query].
-  const readyDocs = documents.filter((d) => d.status === "ready" && d.doc_id);
+  const readyDocs = documents.filter((d) => d.status === "ready" && (d.doc_id || d.preText));
   if (readyDocs.length) {
     chatMeta.textContent = "retrieving doctrine…";
     try {
       const ctxBlocks = [];
       for (const d of readyDocs) {
+        // Pre-fetched artifact text (HTML saved responses, uploaded files) —
+        // skip the RAG round-trip and inject the content directly.
+        if (d.preText) {
+          ctxBlocks.push(`<context source="${d.title || d.name}">\n${d.preText}\n</context>`);
+          continue;
+        }
         const r = await fetch("/document/query", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2004,6 +2012,50 @@ async function attachImageUrls(items) {
   renderImageChips();
 }
 
+// Attach an artifact (HTML saved response or uploaded non-image file) as
+// a pre-fetched context block. Fetches the content client-side, strips
+// tags if HTML, and injects the text directly at send time — no server
+// embedding needed. Shows an "indexing…" chip while fetching.
+async function attachArtifactAsDoc(meta) {
+  const label = meta.name || "artifact";
+  const placeholder = {
+    name:    label,
+    title:   label,
+    url:     meta.url,
+    status:  "indexing",
+    doc_id:  null,
+    chunks:  0,
+    preText: null,
+  };
+  pendingDocuments.push(placeholder);
+  renderImageChips();
+
+  try {
+    const resp = await fetch(meta.url);
+    if (!resp.ok) throw new Error(`${resp.status}`);
+    const text = await resp.text();
+    // Strip HTML tags and collapse whitespace if this is an HTML artifact
+    const isHtml = (meta.mime || "").includes("html") ||
+                   meta.url.includes("/artifacts/") ||
+                   /<html/i.test(text.slice(0, 500));
+    let content = text;
+    if (isHtml) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = text;
+      // Remove script/style nodes before extracting text
+      tmp.querySelectorAll("script,style,nav,header,footer").forEach(el => el.remove());
+      content = (tmp.textContent || tmp.innerText || "").replace(/\s{3,}/g, "\n\n").trim();
+    }
+    placeholder.preText = content.slice(0, 12000); // cap at 12k chars
+    placeholder.status  = "ready";
+    placeholder.chunks  = 1;
+  } catch (e) {
+    placeholder.status = `load failed: ${e.message}`;
+    console.warn("[artifact doc attach] failed:", e);
+  }
+  renderImageChips();
+}
+
 // Attach a Library PDF as a chat-with-document target. Posts to
 // /document/prepare so the server can extract + chunk + embed the PDF;
 // the resulting doc_id is what /document/query uses at send time. Shows
@@ -2142,7 +2194,13 @@ composer.addEventListener("drop", async (e) => {
   if (artifactJson) {
     try {
       const meta = JSON.parse(artifactJson);
-      await attachImageUrls([meta]);
+      const isImg = (meta.mime || "").startsWith("image/") ||
+                    /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(meta.name || "");
+      if (isImg) {
+        await attachImageUrls([meta]);
+      } else {
+        await attachArtifactAsDoc(meta);
+      }
       return;
     } catch (err) {
       console.warn("[drop] bad artifact metadata:", err);

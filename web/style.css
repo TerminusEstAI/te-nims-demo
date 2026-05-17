@@ -1155,6 +1155,16 @@ footer {
   transition: border-color 80ms ease, transform 80ms ease;
 }
 .artifact-thumb:hover  { border-color: var(--te-orange); transform: translateY(-1px); cursor: grab; }
+.artifact-thumb:hover::after {
+  content: "drag to chat";
+  position: absolute;
+  bottom: 2px; right: 4px;
+  font-size: 9px;
+  color: var(--te-orange);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.artifact-thumb { position: relative; }
 .artifact-thumb:active { cursor: grabbing; }
 .artifact-thumb:focus  { outline: 2px solid var(--te-orange); outline-offset: 1px; }
 

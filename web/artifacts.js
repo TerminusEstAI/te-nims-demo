@@ -177,10 +177,14 @@ function makeThumb(item) {
       id:   item.id,
       name: item.name,
       type: item.type,
+      mime: item.mime || "",
       url:  absUrl,
     }));
     ev.dataTransfer.effectAllowed = "copy";
   });
+
+  // Show "drag to chat" hint on hover
+  card.title = card.title || "Drag to chat to attach";
   return card;
 }
 
