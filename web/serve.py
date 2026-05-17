@@ -2718,7 +2718,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
   </style>
 </head>
 <body>
-  <h1>TE NIMS</h1>
+  <h1><span style="color:#e8551a">T</span><span style="color:#fff">E</span> NIMS</h1>
   <p>Upload a photo or file to the active incident session.</p>
   <label class="btn" for="camera">📷 Take Photo</label>
   <input id="camera" type="file" accept="image/*" capture="environment">
