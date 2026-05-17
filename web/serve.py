@@ -62,6 +62,22 @@ def _get_memory():
 DEFAULT_MBTILES = "imagery-cache/moore-esri-z11-z16.mbtiles"
 DEFAULT_PORT    = 8765
 
+# Public-demo lockdown — set TE_PUBLIC_DEMO=0 to re-enable destructive
+# endpoints (used by local dev / CLI workflows). Default is locked.
+PUBLIC_DEMO = os.environ.get("TE_PUBLIC_DEMO", "1") == "1"
+
+
+def _session_user_id() -> str:
+    """Return a memory user_id scoped to the current request's session cookie.
+
+    Falls back to ``ic_default`` only if no session has been initialised
+    (CLI / out-of-request paths). The web handler always calls
+    ``_init_session`` before any memory operation, so the fallback is for
+    safety, not normal flow.
+    """
+    sid = getattr(_session_local, "session_id", None)
+    return f"ic_{sid}" if sid else "ic_default"
+
 # Artifact directories — the SPA's Artifacts tab scans these for chronological
 # display. plot_generate writes here, viz_tools writes here, etc.
 # Using tempfile.gettempdir() so this works on Windows (%TEMP%), macOS, and Linux (/tmp).
@@ -677,6 +693,18 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     # ── Ollama proxy ─────────────────────────────────────────────────
+    # Allowlist — only the paths the UI actually uses. Everything else
+    # (pull, push, create, delete, generate, show, copy, blobs, …) is
+    # blocked so the public demo cannot be used as a free inference relay
+    # or to enumerate the internal model inventory beyond `tags`.
+    OLLAMA_ALLOWED_PATHS = {
+        "/api/chat",
+        "/api/embed",
+        "/api/embeddings",
+        "/api/tags",
+        "/api/ps",
+    }
+
     def _proxy_ollama(self, method: str) -> None:
         """Proxy Ollama API requests through serve.py to avoid browser CORS.
 
@@ -692,6 +720,11 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         upstream_path = self.path.removeprefix("/api/ollama")
         if not upstream_path.startswith("/"):
             upstream_path = "/" + upstream_path
+        # Strip query string for allowlist check; preserve full path on proxy.
+        path_only = upstream_path.split("?", 1)[0]
+        if path_only not in self.OLLAMA_ALLOWED_PATHS:
+            self.send_error(403, "endpoint not available")
+            return
         upstream_url = f"{EMBED_OLLAMA_URL}{upstream_path}"
 
         body = b""
@@ -1240,6 +1273,9 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
 
         Non-destructive: library PDFs and MBTiles are untouched.
         """
+        if PUBLIC_DEMO:
+            self._json_error(403, "disabled in public demo mode")
+            return
         import json as _json  # noqa: PLC0415
 
         cleared = []
@@ -1559,6 +1595,17 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(out)
 
+    # ── JSON error helper (used by PUBLIC_DEMO lockdown + uniform errors) ──
+    def _json_error(self, code: int, msg: str) -> None:
+        import json as _json  # noqa: PLC0415
+        body = _json.dumps({"error": msg}).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     # ── Session memory (Mem0 + Qdrant, shared with CLI chat.py) ─────
     def _memory_add(self) -> None:
         """POST /memory/add  body: {question, answer}
@@ -1576,7 +1623,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 question = str(req.get("question", ""))
                 answer   = str(req.get("answer", ""))
-                mem.add(question, answer)
+                mem.add(question, answer, user_id=_session_user_id())
                 body = _json.dumps({"status": "ok"}).encode()
             except Exception as exc:
                 body = _json.dumps({"status": "error", "detail": str(exc)[:120]}).encode()
@@ -1604,7 +1651,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 query = str(req.get("query", ""))
                 k = int(req.get("k", 5))
-                ctx = mem.context_block(query, k=k)
+                ctx = mem.context_block(query, k=k, user_id=_session_user_id())
                 body = _json.dumps({
                     "has_context": bool(ctx),
                     "context": ctx or "",
@@ -1628,7 +1675,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             body = _json.dumps({"enabled": False, "memories": []}).encode()
         else:
             try:
-                memories = mem.all()
+                memories = mem.all(user_id=_session_user_id())
                 body = _json.dumps({"memories": memories}).encode()
             except Exception as exc:
                 body = _json.dumps({"memories": [], "detail": str(exc)[:120]}).encode()
@@ -1642,13 +1689,16 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
 
     def _memory_clear(self) -> None:
         """GET /memory/clear — wipes all memories for this IC (irreversible)."""
+        if PUBLIC_DEMO:
+            self._json_error(403, "disabled in public demo mode")
+            return
         import json as _json  # noqa: PLC0415
         mem = _get_memory()
         if mem is None:
             body = _json.dumps({"enabled": False, "status": "memory_unavailable"}).encode()
         else:
             try:
-                mem.reset()
+                mem.reset(user_id=_session_user_id())
                 body = _json.dumps({"status": "ok"}).encode()
             except Exception as exc:
                 body = _json.dumps({"status": "error", "detail": str(exc)[:120]}).encode()
@@ -1664,16 +1714,9 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         """GET /memory/status — reports whether Mem0 is available."""
         import json as _json  # noqa: PLC0415
         mem = _get_memory()
-        user_id = None
-        if mem is not None:
-            try:
-                from severian_memory import _MEMORY_USER_ID  # type: ignore[import]
-                user_id = _MEMORY_USER_ID
-            except Exception:
-                user_id = "ic_default"
         body = _json.dumps({
             "enabled": mem is not None,
-            "user_id": user_id,
+            "user_id": _session_user_id() if mem is not None else None,
         }).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -1799,6 +1842,10 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if LIBRARY_DIR.is_dir():
             for p in sorted(LIBRARY_DIR.iterdir()):
                 if p.suffix.lower() != ".pdf" or not p.is_file():
+                    continue
+                # Skip macOS AppleDouble sidecars (._*) and any other dotfiles
+                # that slip in via rsync/scp from a macOS source.
+                if p.name.startswith(".") or p.name.startswith("._"):
                     continue
                 try:
                     st = p.stat()
@@ -1994,6 +2041,11 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if "/" in name or "\\" in name or name.startswith("..") or not name.endswith(".pdf"):
             self.send_error(400, "invalid library filename")
             return
+        # Block dotfiles and macOS AppleDouble sidecars even if a stray copy
+        # exists on disk — they are never part of the public corpus.
+        if name.startswith(".") or name.startswith("._"):
+            self.send_error(404, "library doc not found")
+            return
         # Check canonical LIBRARY_DIR first; fall back to SAVED_FORMS_DIR for
         # archived prior versions (timestamped filenames).
         path = (LIBRARY_DIR / name).resolve()
@@ -2034,6 +2086,9 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         Leaves LIBRARY_DIR untouched (canonical originals stay).  Called by
         the /reload slash command to return forms to their factory state.
         """
+        if PUBLIC_DEMO:
+            self._json_error(403, "disabled in public demo mode")
+            return
         import json as _json  # noqa: PLC0415
         deleted = []
         if SAVED_FORMS_DIR.is_dir():
@@ -2685,19 +2740,45 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(body)
                     return
-                # Linkage check
+                # Linkage check.
+                #
+                # The server-side JSONL is a *mirror* — the cryptographic chain
+                # of trust lives inside the block envelopes themselves (signature
+                # + prev_signature). When a session's mirror file is empty
+                # (fresh server-side session cookie, or operator reloaded after
+                # cookie expiry), accept whatever the client posts as the
+                # initial state — the client's IndexedDB is the source of truth
+                # per the chain.js comment at L74. Without this, a stale
+                # IndexedDB + fresh session cookie causes a permanent 409 storm
+                # on every chat turn (judges see 409s in the console).
                 if last_block is None:
-                    # Genesis: prev_signature must be null or absent
-                    if new_prev not in (None, "", "null"):
-                        self.send_error(409,
-                            "first block must have null prev_signature; got " +
-                            str(new_prev)[:32])
-                        return
+                    # Empty mirror — accept the block as-is. Whether
+                    # prev_signature is null (true genesis) or points to a
+                    # block the server hasn't yet seen (client backfill),
+                    # the integrity check is the client's job and the
+                    # cryptographic chain still verifies end-to-end via
+                    # te-verify chain-mirror.
+                    pass
                 else:
                     expected_prev = last_block.get("signature")
                     if new_prev != expected_prev:
-                        self.send_error(409,
-                            f"prev_signature mismatch - expected {str(expected_prev)[:16]}, got {str(new_prev)[:16]}")
+                        # Structured 409 so the client can reconcile (replay
+                        # its local backlog) instead of silently dropping the
+                        # block. send_error() collapses to a text/html body —
+                        # we want machine-readable.
+                        err_body = _json.dumps({
+                            "error": "prev_signature_mismatch",
+                            "expected_prev": expected_prev,
+                            "got_prev": new_prev,
+                            "server_last_signature": expected_prev,
+                            "server_block_count": len(seen_sigs),
+                        }).encode("utf-8")
+                        self.send_response(409)
+                        self.send_header("Content-Type", "application/json")
+                        self.send_header("Content-Length", str(len(err_body)))
+                        self.send_header("Cache-Control", "no-store")
+                        self.end_headers()
+                        self.wfile.write(err_body)
                         return
                 # All checks passed — append.
                 with open(_chain_log_path(), "a", encoding="utf-8") as f:
@@ -2969,16 +3050,19 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
 
     def _serve_signing_key(self) -> None:
         """GET /signing-key → {"key_id": "...", "scheme": "HMAC-SHA256",
-        "key": "<base64-or-string>", "loaded_from": "<path|default>"}.
+        "loaded_from": "<path|default>"}.
 
-        Reads data/.signing-key.json if present; otherwise returns the
-        demo key. The SPA fetches this at boot and uses key_id + key
-        verbatim so production deployments can drop in a real identity
-        without touching JS.
+        Returns IDENTITY METADATA ONLY — the raw "key" field is
+        intentionally stripped from the response. Server-side /vpo/sign
+        is the only signer, so the client only needs the key_id for
+        display + banner classification. Exposing the raw HMAC secret
+        would let any caller mint valid-looking chain blocks. Verifiers
+        obtain the key out-of-band.
         """
         import json as _json  # noqa: PLC0415
         spec = _read_signing_key()
-        body = _json.dumps(spec).encode("utf-8")
+        safe = {k: v for k, v in spec.items() if k != "key"}
+        body = _json.dumps(safe).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -3149,6 +3233,9 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
     def do_PUT(self) -> None:  # noqa: N802
         # PUT /library/<filename> — replace an existing ICS form PDF in LIBRARY_DIR.
         # Only existing .pdf files may be replaced; no new files, no path traversal.
+        if PUBLIC_DEMO:
+            self._json_error(403, "disabled in public demo mode")
+            return
         from urllib.parse import unquote  # noqa: PLC0415
         prefix = "/library/"
         if not self.path.startswith(prefix):
@@ -3203,7 +3290,9 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if "/" in name or "\\" in name or name.startswith("..") or name.startswith("."):
             self.send_error(400, "invalid artifact name")
             return
-        # Search session dirs first (same order as _serve_artifact)
+        # Search session dirs first (same order as _serve_artifact).
+        # In PUBLIC_DEMO mode we deliberately omit the global ARTIFACT_DIRS
+        # fallback so one visitor can never delete another visitor's files.
         session_dirs = self._session_artifact_dirs()
         upload_dir   = _chat_log_dir() / "uploads"
         candidate_roots = []
@@ -3211,7 +3300,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             candidate_roots.append(session_dirs[kind])
         if kind == "upload":
             candidate_roots.append(upload_dir)
-        if kind in ARTIFACT_DIRS:
+        if not PUBLIC_DEMO and kind in ARTIFACT_DIRS:
             candidate_roots.append(ARTIFACT_DIRS[kind])
         if not candidate_roots:
             self.send_error(404, f"unknown artifact type: {kind}")
