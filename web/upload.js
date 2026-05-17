@@ -102,14 +102,14 @@ export function initUploadPanel() {
       tmp.accept = "image/*,application/pdf,.txt,.json,.csv";
       tmp.multiple = true;
       tmp.addEventListener("change", () => {
-        // Dispatch a synthetic drop event into the composer drop zone
         const dropZone = document.getElementById("composer");
-        if (dropZone && tmp.files?.length) {
-          const dt = new DataTransfer();
-          [...tmp.files].forEach(f => dt.items.add(f));
-          dropZone.dispatchEvent(Object.assign(new DragEvent("drop", { bubbles: true, cancelable: true }),
-            { dataTransfer: dt }));
-        }
+        if (!dropZone || !tmp.files?.length) return;
+        const dt = new DataTransfer();
+        [...tmp.files].forEach(f => dt.items.add(f));
+        // dataTransfer is read-only on DragEvent — pass it via the init dict
+        dropZone.dispatchEvent(new DragEvent("drop", {
+          bubbles: true, cancelable: true, dataTransfer: dt,
+        }));
       });
       tmp.click();
     });
