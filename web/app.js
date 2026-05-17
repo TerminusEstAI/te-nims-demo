@@ -1945,6 +1945,20 @@ function readImageFile(file) {
 // optional `meta` carries id/name/type/sourceUrl so the chat render and
 // chip preview can show provenance ("from /artifacts/foo.png").
 async function readImageUrl(url, meta = {}) {
+  // data: URLs are already base64 — fetching them triggers a CSP violation.
+  // Parse directly without a network round-trip.
+  if (url.startsWith("data:")) {
+    const [header, base64 = ""] = url.split(",", 2);
+    const mime = (header.match(/data:([^;,]+)/) || [])[1] || "image/png";
+    if (!mime.startsWith("image/")) throw new Error(`not an image: ${mime}`);
+    return {
+      name:      meta.name || "image",
+      mime,
+      dataUrl:   url,
+      base64,
+      sourceUrl: meta.sourceUrl || null,
+    };
+  }
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
   const blob = await resp.blob();
