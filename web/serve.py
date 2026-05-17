@@ -2739,10 +2739,38 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
   <div id="error"></div>
   <script>
     {cookie_js}
+    // iPhone defaults to HEIC; llama.cpp's image decoder rejects it.
+    // Re-encode every non-mainstream image to JPEG via canvas. Safari
+    // on iOS can decode HEIC into an <img>, so the canvas captures the
+    // pixels and exports a JPEG the vision model can actually load.
+    async function normalizeForUpload(file) {{
+      if (/^image\\/(jpe?g|png|gif|webp|bmp)$/i.test(file.type)) return file;
+      if (!file.type.startsWith("image/") && !/\\.(heic|heif|avif)$/i.test(file.name)) return file;
+      return new Promise((resolve) => {{
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {{
+          const canvas = document.createElement("canvas");
+          canvas.width  = img.naturalWidth || 1920;
+          canvas.height = img.naturalHeight || 1080;
+          canvas.getContext("2d").drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((blob) => {{
+            if (!blob) return resolve(file);
+            const renamed = file.name.replace(/\\.[^.]+$/, "") + ".jpg";
+            resolve(new File([blob], renamed, {{ type: "image/jpeg" }}));
+          }}, "image/jpeg", 0.92);
+        }};
+        img.onerror = () => {{ URL.revokeObjectURL(url); resolve(file); }};
+        img.src = url;
+      }});
+    }}
+
     async function upload(files) {{
       const status = document.getElementById("status");
       const err    = document.getElementById("error");
-      for (const f of files) {{
+      for (const orig of files) {{
+        const f = await normalizeForUpload(orig);
         status.textContent = "Uploading " + f.name + "…";
         const fd = new FormData(); fd.append("file", f);
         const r = await fetch("/upload-file", {{method:"POST",body:fd}}).catch(e=>{{err.textContent=e.message;return null}});

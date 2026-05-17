@@ -1927,23 +1927,53 @@ function renderImageChips() {
   });
 }
 
-function readImageFile(file) {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith("image/")) {
-      reject(new Error(`not an image: ${file.type}`));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      // dataUrl is "data:image/png;base64,XXXXXX" — split off the prefix
-      // so we have the raw base64 Ollama expects.
-      const base64 = String(dataUrl).split(",", 2)[1] || "";
-      resolve({ name: file.name || "pasted-image", mime: file.type, dataUrl, base64 });
+// llama.cpp's stb_image decoder only handles jpg/png/gif/bmp/psd/tga/hdr/pic/pnm.
+// HEIC, WebP-with-alpha, and AVIF will fail with "failed to decode image bytes".
+// Re-encode via canvas to JPEG so the vision model receives a format it
+// can actually parse. The browser's native decoder reads HEIC (Safari)
+// and any other format <img> supports; we hand it back as JPEG bytes.
+async function _normalizeBlobToJpeg(blob, hintName = "image") {
+  const supported = /^image\/(jpe?g|png|gif|bmp)$/i;
+  if (supported.test(blob.type)) {
+    // Already a format llama.cpp handles — pass through unchanged
+    return { blob, name: hintName, mime: blob.type };
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload  = () => resolve(el);
+      el.onerror = () => reject(new Error("browser cannot decode image"));
+      el.src = url;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width  = img.naturalWidth  || 1920;
+    canvas.height = img.naturalHeight || 1080;
+    canvas.getContext("2d").drawImage(img, 0, 0);
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    return {
+      blob: out || blob,
+      name: hintName.replace(/\.[^.]+$/, "") + ".jpg",
+      mime: "image/jpeg",
     };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function readImageFile(file) {
+  if (!file.type.startsWith("image/") && !/\.(heic|heif|avif)$/i.test(file.name)) {
+    throw new Error(`not an image: ${file.type}`);
+  }
+  const norm = await _normalizeBlobToJpeg(file, file.name || "pasted-image");
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
     reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(norm.blob);
   });
+  const base64 = String(dataUrl).split(",", 2)[1] || "";
+  return { name: norm.name, mime: norm.mime, dataUrl, base64 };
 }
 
 // Fetch an image already served by serve.py (artifact URL) and convert it
@@ -1968,19 +1998,21 @@ async function readImageUrl(url, meta = {}) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
   const blob = await resp.blob();
-  if (!blob.type.startsWith("image/")) {
-    throw new Error(`not an image: ${blob.type || "unknown"}`);
-  }
+  // Allow .heic/.heif/.avif by extension even if Content-Type lies
+  const isImage = blob.type.startsWith("image/") ||
+                  /\.(heic|heif|avif)$/i.test(meta.name || url);
+  if (!isImage) throw new Error(`not an image: ${blob.type || "unknown"}`);
+  const norm = await _normalizeBlobToJpeg(blob, meta.name || url.split("/").pop() || "image");
   const dataUrl = await new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload  = () => resolve(r.result);
     r.onerror = () => reject(r.error);
-    r.readAsDataURL(blob);
+    r.readAsDataURL(norm.blob);
   });
   const base64 = String(dataUrl).split(",", 2)[1] || "";
   return {
-    name:      meta.name || url.split("/").pop() || "image",
-    mime:      blob.type,
+    name:      norm.name,
+    mime:      norm.mime,
     dataUrl,
     base64,
     sourceUrl: meta.sourceUrl || url,
