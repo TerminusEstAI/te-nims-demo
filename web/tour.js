@@ -39,7 +39,7 @@ const STEPS = [
   },
   {
     n: 6,
-    body: "TE NIMS let the Incident Commander know he needed to establish his organizational structure. Chief Martinez has drawn out his org chart on a butcher board. TE NIMS allows him to use the upload QR code to take a picture of it and have it analyzed and redrawn to doctrine then stored as an artifact. Many items in a command center are still done by hand for speed and ease of use, but TE NIMS allows them to be turned into AI available artifacts using GEMMA 4's multi-modal vision capabilities.",
+    body: "TE NIMS let the Incident Commander know he needed to establish his organizational structure. Chief Martinez has drawn out his org chart on a butcher board. TE NIMS allows him to use the upload QR code to take a picture of it and have it analyzed and redrawn to doctrine then stored as an artifact. Many items in a command center are still done by hand for speed and ease of use, but TE NIMS allows them to be turned into AI available artifacts using Gemma 4's multi-modal vision capabilities.",
     informational: true,
     tab: "upload",
   },
@@ -52,7 +52,7 @@ const STEPS = [
   },
   {
     n: 8,
-    body: "TE NIMS can use GEMMA's multimodal capabilities to leverage its doctrinal knowledge.",
+    body: "TE NIMS can use Gemma's multimodal capabilities to leverage its doctrinal knowledge.",
     query: "Create a doctrinally correct version of the diagram.",
   },
   {

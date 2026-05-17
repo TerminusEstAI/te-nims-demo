@@ -175,3 +175,7 @@ Third-party attributions: see [NOTICE](NOTICE).
 ---
 
 *Submitted to the [Kaggle Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) · 2026*
+
+---
+
+*Gemma is a trademark of Google LLC. TE NIMS is not affiliated with or endorsed by Google.*
