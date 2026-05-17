@@ -169,6 +169,18 @@ function makeThumb(item) {
 
   card.appendChild(label);
 
+  // Trashcan — stop propagation so it doesn't also open the lightbox
+  const trash = document.createElement("button");
+  trash.className = "artifact-delete-btn";
+  trash.type = "button";
+  trash.setAttribute("aria-label", `Delete ${item.name}`);
+  trash.textContent = "🗑";
+  trash.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    _confirmDelete(item);
+  });
+  card.appendChild(trash);
+
   card.addEventListener("click", () => openModal(item, { url, isImage }));
   card.addEventListener("dragstart", (ev) => {
     if (!ev.dataTransfer) return;
@@ -188,6 +200,70 @@ function makeThumb(item) {
   // Show "drag to chat" hint on hover
   card.title = card.title || "Drag to chat to attach";
   return card;
+}
+
+// ── Delete confirm modal ──────────────────────────────────────────────
+
+let _deleteModal = null;
+
+function _getOrCreateDeleteModal() {
+  if (_deleteModal && document.body.contains(_deleteModal)) return _deleteModal;
+  _deleteModal = document.createElement("div");
+  _deleteModal.className = "artifact-delete-modal-backdrop";
+  _deleteModal.innerHTML = `
+    <div class="artifact-delete-modal">
+      <div class="artifact-delete-modal-title">Delete artifact?</div>
+      <div class="artifact-delete-modal-name"></div>
+      <p class="artifact-delete-modal-warn">This cannot be undone.</p>
+      <div class="artifact-delete-modal-actions">
+        <button class="artifact-delete-confirm" type="button">Delete</button>
+        <button class="artifact-delete-cancel"  type="button">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(_deleteModal);
+  _deleteModal.querySelector(".artifact-delete-cancel").addEventListener("click", () => {
+    _deleteModal.hidden = true;
+  });
+  _deleteModal.addEventListener("click", (ev) => {
+    if (ev.target === _deleteModal) _deleteModal.hidden = true;
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && _deleteModal && !_deleteModal.hidden) _deleteModal.hidden = true;
+  });
+  return _deleteModal;
+}
+
+function _confirmDelete(item) {
+  const m = _getOrCreateDeleteModal();
+  m.querySelector(".artifact-delete-modal-name").textContent = item.name;
+  m.hidden = false;
+
+  const btn = m.querySelector(".artifact-delete-confirm");
+  // Replace the confirm button to remove any previous click listener
+  const fresh = btn.cloneNode(true);
+  btn.replaceWith(fresh);
+  fresh.addEventListener("click", async () => {
+    m.hidden = true;
+    await _doDelete(item);
+  });
+}
+
+async function _doDelete(item) {
+  if (item._clientUpload) {
+    _uploadArtifacts = _uploadArtifacts.filter(u => u.id !== item.id);
+    _persistUploads();
+    _lastFingerprint = "";   // force re-render
+    refresh({ force: true }).catch(() => {});
+    return;
+  }
+  try {
+    const res = await fetch(`/artifacts/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`${res.status}`);
+  } catch (e) {
+    console.warn("[artifacts] delete failed:", e);
+  }
+  _lastFingerprint = "";
+  refresh({ force: true }).catch(() => {});
 }
 
 function openModal(item, opts = {}) {

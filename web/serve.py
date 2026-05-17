@@ -3077,6 +3077,45 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(out)
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        """DELETE /artifacts/<id> — removes the file from disk.
+        id is `<type>:<basename>` matching what _list_artifacts emits."""
+        from urllib.parse import unquote  # noqa: PLC0415
+        import json as _json             # noqa: PLC0415
+        self._init_session()
+        prefix = "/artifacts/"
+        if not self.path.startswith(prefix):
+            self.send_error(405, "method not allowed")
+            return
+        artifact_id = unquote(self.path[len(prefix):].split("?")[0])
+        if ":" not in artifact_id:
+            self.send_error(400, "artifact id must be <type>:<basename>")
+            return
+        kind, _, name = artifact_id.partition(":")
+        root = ARTIFACT_DIRS.get(kind)
+        if root is None:
+            self.send_error(404, f"unknown artifact type: {kind}")
+            return
+        if "/" in name or "\\" in name or name.startswith("..") or name.startswith("."):
+            self.send_error(400, "invalid artifact name")
+            return
+        path = (root / name).resolve()
+        try:
+            path.relative_to(root.resolve())
+        except ValueError:
+            self.send_error(400, "path escapes artifact root")
+            return
+        if not path.is_file():
+            self.send_error(404, "artifact not found")
+            return
+        path.unlink()
+        out = _json.dumps({"ok": True, "deleted": artifact_id}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
     def do_GET(self) -> None:  # noqa: N802 (http.server convention)
         self._init_session()
         # GET /demo/damage — building damage heatmap + track overlay data
