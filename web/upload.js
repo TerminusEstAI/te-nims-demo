@@ -57,9 +57,13 @@ function _startUploadPolling() {
   _uploadPollTimer = setInterval(_pollMobileUploads, UPLOAD_POLL_MS);
 }
 
-function _sessionId() {
-  const c = document.cookie.split(";").map(s => s.trim()).find(s => s.startsWith("svs_session="));
-  return c ? c.split("=")[1] : null;
+async function _sessionId() {
+  // Cookie is HttpOnly so JS can't read it directly — ask the server instead.
+  try {
+    const r = await fetch("/session-id", { cache: "no-store" });
+    if (r.ok) { const j = await r.json(); return j.sid || null; }
+  } catch (_) {}
+  return null;
 }
 
 async function _renderQR() {
@@ -67,7 +71,7 @@ async function _renderQR() {
   const urlEl  = document.getElementById("upload-qr-url");
   if (!canvas) return;
 
-  const sid = _sessionId();
+  const sid = await _sessionId();
   const url = sid
     ? `${window.location.origin}/upload-mobile?s=${sid}`
     : `${window.location.origin}/upload-mobile`;

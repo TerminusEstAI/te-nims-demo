@@ -3366,6 +3366,19 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/demo/buildings" or self.path.startswith("/demo/buildings?"):
             self._demo_buildings()
             return
+        # GET /session-id — returns the current session ID so JS can embed it
+        # in the mobile QR URL. Needed because the cookie is HttpOnly.
+        if self.path == "/session-id":
+            import json as _json
+            sid = getattr(_session_local, "session_id", "")
+            body = _json.dumps({"sid": sid}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         # Match /status (boot health panel consumed by app.js banner)
         if self.path == "/status" or self.path.startswith("/status?"):
             self._serve_status()
