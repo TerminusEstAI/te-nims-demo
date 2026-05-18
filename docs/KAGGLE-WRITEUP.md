@@ -126,17 +126,17 @@ The map panel displays:
 
 ### PDF RAG and NIMS Library
 
-66MB SQLite doctrine corpus with nomic-embed-text embeddings. Any NIMS/ICS PDF can be dragged into the chat for immediate RAG — chunks are extracted, embedded, and queried in real time. The Library tab contains all major FEMA NIMS doctrine and ICS form specifications.
+66MB SQLite doctrine corpus with nomic-embed-text embeddings. Any NIMS/ICS PDF can be dragged into the chat for immediate RAG — chunks are extracted, embedded, and queried in real time. The public repo bundles the doctrine chunk store and demo scenario; an optional browsable PDF library can be mounted under `web/library/pdfs` when you want the Library tab populated locally.
 
 ### Offline / Edge Deployment
 
 The entire system runs on a single machine with no cloud API calls:
 - **Ollama** serving the Q4_K_M GGUF (~5GB, 8GB VRAM minimum)
 - **Piper TTS** for offline British-English voice responses
-- **Web Speech API** for push-to-talk voice input
+- **Web Speech API** for browser-native push-to-talk dictation input
 - **MBTiles** offline satellite tile cache (21MB, Moore/OKC metro)
 
-`docker compose up` pulls the text deployment artifact from Hugging Face on first boot and starts everything. No accounts, no API keys, no internet required after first run.
+`docker compose up` pulls the text deployment artifact, the vision GGUF, the vision mmproj, and the Piper voice on first boot, then starts the local browser demo. No accounts or API keys are required. After the first run, the named Docker volumes allow offline reuse of those artifacts; the first boot still requires internet access for artifact download and Ollama support-model pulls. Text inference, multimodal vision, doctrine RAG, and TTS are self-hosted locally after that warm-up. Voice input remains browser-dependent because the shipped STT path uses Web Speech rather than a bundled offline recognizer.
 
 ### Sentence-Streaming TTS
 
@@ -177,11 +177,11 @@ The live site includes a **19-step guided tutorial** that walks through every ca
 | Web server | Python `ThreadingTCPServer`, supervisord-managed |
 | LLM inference | Ollama + severian-ollama (text), llama-server sidecar (vision) |
 | TTS | Piper TTS, sentence-streaming queue |
-| STT | Web Speech API (push-to-talk) |
+| STT | Web Speech API (browser-native push-to-talk dictation; not a bundled offline recognizer) |
 | RAG | pypdfium2, nomic-embed-text, SQLite WAL |
 | Maps | Leaflet.js, USGS National Map, MBTiles |
 | Provenance | HMAC-SHA256 chain, JSONL server mirror, IndexedDB client |
-| TLS | Caddy (auto-cert) |
+| TLS | Caddy (hosted deployment) / direct localhost in Docker repro |
 | Process mgmt | supervisord with stopasgroup/killasgroup |
 | GPU | NVIDIA L4 24GB (GCP g2-standard-4) |
 
@@ -193,7 +193,7 @@ The live site includes a **19-step guided tutorial** that walks through every ca
 git clone https://github.com/TerminusEstAI/te-nims-demo
 cd te-nims-demo
 docker compose up
-# → Downloads 5GB model from HuggingFace, starts everything
+# → Downloads text + vision artifacts, starts the local browser demo
 # → Open http://localhost:8765
 ```
 

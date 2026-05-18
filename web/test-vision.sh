@@ -1,7 +1,8 @@
 #!/bin/bash
 # Test severian-vision multimodal inference end-to-end on the VM.
 set -e
-IMG="${1:-/opt/severian/app/severian-fob-web/icon-512.png}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMG="${1:-$SCRIPT_DIR/icon-512.png}"
 B64=$(base64 -w0 "$IMG")
 JSON=$(python3 -c "
 import json,sys

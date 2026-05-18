@@ -3,13 +3,32 @@
 # Run after setup-llama-cuda.sh has produced /opt/llama.cpp-vision/build/bin/llama-server.
 set -e
 
+MODEL_DIR=/opt/severian/model
+SERVICE_USER=${SERVICE_USER:-root}
+SERVICE_GROUP=${SERVICE_GROUP:-root}
+VISION_GGUF=${VISION_GGUF:-$MODEL_DIR/severian-vision-q4_k_m.gguf}
+VISION_MMPROJ=${VISION_MMPROJ:-$MODEL_DIR/mmproj-severian-vision.gguf}
+VISION_GGUF_URL=${VISION_GGUF_URL:-https://huggingface.co/tmancino/severian-vision-gguf/resolve/main/severian-vision-q4_k_m.gguf}
+VISION_MMPROJ_URL=${VISION_MMPROJ_URL:-https://huggingface.co/tmancino/severian-vision-mmproj/resolve/main/mmproj-severian-vision.gguf}
+
 # 0. Sanity: binary exists
 test -x /opt/llama.cpp-vision/build/bin/llama-server || { echo "ERROR: llama-server not built"; exit 1; }
+
+# 0.5 Download deployable vision artifacts if missing
+sudo mkdir -p "$MODEL_DIR"
+if [ ! -f "$VISION_GGUF" ]; then
+  echo "Downloading severian vision GGUF from Hugging Face..."
+  sudo curl -L --fail --progress-bar -o "$VISION_GGUF" "$VISION_GGUF_URL"
+fi
+if [ ! -f "$VISION_MMPROJ" ]; then
+  echo "Downloading severian vision mmproj from Hugging Face..."
+  sudo curl -L --fail --progress-bar -o "$VISION_MMPROJ" "$VISION_MMPROJ_URL"
+fi
 
 # 1. Install systemd unit
 sudo cp /tmp/llama-vision.service /etc/systemd/system/llama-vision.service
 sudo touch /var/log/llama-vision.log
-sudo chown tmancino:tmancino /var/log/llama-vision.log
+sudo chown "$SERVICE_USER:$SERVICE_GROUP" /var/log/llama-vision.log
 sudo systemctl daemon-reload
 sudo systemctl enable --now llama-vision
 

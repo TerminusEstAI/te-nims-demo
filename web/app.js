@@ -1202,9 +1202,11 @@ async function buildChatRequest(conversation, hasImages) {
       // after the model has finished generating (we discard the hallucinated value).
       stop: ["</tool_call>"],
       options: {
-        num_ctx: 8192,
+        // Keep request-time context aligned with the bundled Modelfile and
+        // low-RAM demo targets. Larger overrides can make the cold-start
+        // Docker path fail on judge hardware.
+        num_ctx: 4096,
         num_predict: 1024,
-        cache_prompt: true,
       },
     }),
     streamFormat: "ndjson",
@@ -2556,7 +2558,7 @@ initTabs();
 
 // ── Boot voice (Web Speech API for both directions for now) ─────────
 // Phase 2: replace TTS with bundled Piper-Wasm + en_GB-alan voice file
-// for full-offline operation. STT stays on Web Speech (browser-native).
+// for full-offline operation. STT stays on Web Speech as assisted dictation.
 // ── Voice skill router ───────────────────────────────────────────────
 // Intercepts recognised speech before it reaches Severian. Returns true
 // if the utterance matched a local skill (map layer toggle, etc.) so the
@@ -2586,15 +2588,42 @@ function handleVoiceSkill(text) {
   return false;
 }
 
+function mergeVoiceText(base, incoming) {
+  const left = String(base || "").trim();
+  const right = String(incoming || "").trim();
+  if (!left) return right;
+  if (!right) return left;
+  return `${left} ${right}`.replace(/\s+/g, " ").trim();
+}
+
 initVoice({
-  onTranscript: (text) => {
-    promptInput.value = text;
+  onStart: () => {
+    promptInput.dataset.voiceBase = promptInput.value || "";
+  },
+  onPartial: (text) => {
+    const base = promptInput.dataset.voiceBase || "";
+    promptInput.value = mergeVoiceText(base, text);
+  },
+  onCommit: (text) => {
+    const base = promptInput.dataset.voiceBase || "";
+    delete promptInput.dataset.voiceBase;
+    promptInput.value = mergeVoiceText(base, text);
     if (!text) return;
-    if (handleVoiceSkill(text)) {
+    if (!String(base || "").trim() && handleVoiceSkill(text)) {
       promptInput.value = "";   // clear input — skill handled it, no need to send
       return;
     }
-    sendQuery(text);
+    promptInput.focus();
+    promptInput.setSelectionRange(promptInput.value.length, promptInput.value.length);
+    chatMeta.textContent = "voice transcript ready";
+  },
+  onAbort: (reason) => {
+    const base = promptInput.dataset.voiceBase || "";
+    delete promptInput.dataset.voiceBase;
+    promptInput.value = base;
+    chatMeta.textContent = reason === "microphone-unavailable"
+      ? "microphone unavailable"
+      : "voice input stopped";
   },
 });
 

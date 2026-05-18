@@ -14,6 +14,56 @@ let listening = false;
 let recognition = null;
 let ttsEnabled  = false;
 let _audioCtx   = null;
+let _resultTexts = new Map();
+let _holdingPtt  = false;
+let _stopRequested = false;
+let _micStream = null;
+
+function _normalizeTranscript(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function _composeTranscript() {
+  return Array.from(_resultTexts.keys())
+    .sort((a, b) => a - b)
+    .map((k) => _resultTexts.get(k) || "")
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function _resetTranscriptState() {
+  _resultTexts = new Map();
+}
+
+async function _ensureMicAccess() {
+  if (!navigator.mediaDevices?.getUserMedia) return true;
+  if (_micStream) return true;
+  try {
+    _micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    return true;
+  } catch (err) {
+    console.warn("microphone access failed:", err);
+    return false;
+  }
+}
+
+function _releaseMicAccess() {
+  if (!_micStream) return;
+  for (const track of _micStream.getTracks()) {
+    try { track.stop(); } catch {}
+  }
+  _micStream = null;
+}
 
 // Claim the macOS audio session so the OS routes headset media buttons
 // (BlueParrott PTT, AirPods stem, etc.) to Chrome's MediaSession handlers
@@ -46,56 +96,108 @@ function makeRecognition() {
   if (!SR) return null;
   const r = new SR();
   r.lang = "en-US";
-  r.continuous     = true;   // stay on until the user toggles off
-  r.interimResults = false;
-  r.maxAlternatives = 1;
+  // Use browser-native STT, but keep the session bounded to one active
+  // press-to-talk utterance. We reassemble multiple result segments locally.
+  r.continuous = true;
+  r.interimResults = true;
+  r.maxAlternatives = 3;
   return r;
 }
 
-export function initVoice({ onTranscript, getReadable }) {
+export function initVoice({ onStart, onPartial, onCommit, onAbort }) {
   const micBtn  = document.getElementById("mic");
   const ttsBtn  = document.getElementById("tts");
 
   // ── Mic / push-to-talk ─────────────────────────────────────────────
   recognition = makeRecognition();
   if (recognition && micBtn) {
+    window.addEventListener("beforeunload", _releaseMicAccess);
     micBtn.disabled = false;
-    micBtn.title = "Click to start listening · click again to stop";
+    micBtn.title = "Hold to speak";
 
     const _msState = (state) => {
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = state;
     };
 
+    const _setMicUi = (active) => {
+      micBtn.classList.toggle("listening", active);
+      micBtn.title = active
+        ? "Listening… release to transcribe"
+        : "Hold to speak";
+    };
+
+    const _emitPartial = () => {
+      if (onPartial) onPartial(_composeTranscript());
+    };
+
+    const _commitTranscript = () => {
+      const transcript = _composeTranscript();
+      _resetTranscriptState();
+      if (onCommit && transcript) onCommit(transcript);
+    };
+
     const start = () => {
       if (listening) return;
       _claimAudioSession();
+      _stopRequested = false;
+      _resetTranscriptState();
       try {
         recognition.start();
         listening = true;
-        micBtn.classList.add("listening");
-        micBtn.title = "Listening… click or press PTT to stop";
+        _setMicUi(true);
         _msState("playing");
+        if (onStart) onStart();
       } catch (e) { /* already started — ignore */ }
     };
-    const stop = () => {
+    const stop = ({ commit = true } = {}) => {
       if (!listening) return;
+      _stopRequested = commit;
       try { recognition.stop(); } catch {}
       listening = false;
-      micBtn.classList.remove("listening");
-      micBtn.title = "Click to start listening · click again to stop";
+      _setMicUi(false);
       _msState("paused");
     };
-    const toggle = () => { listening ? stop() : start(); };
+
+    const beginHold = async () => {
+      _holdingPtt = true;
+      const micReady = await _ensureMicAccess();
+      if (!_holdingPtt) return;
+      if (!micReady) {
+        _holdingPtt = false;
+        _setMicUi(false);
+        if (onAbort) onAbort("microphone-unavailable");
+        return;
+      }
+      start();
+    };
+    const endHold = () => {
+      if (!_holdingPtt && !listening) return;
+      _holdingPtt = false;
+      stop({ commit: true });
+    };
 
     // Claim audio session on first any user gesture so macOS routes the
     // BlueParrott button to Chrome before the operator ever touches the mic.
     const _firstGesture = () => { _claimAudioSession(); };
-    document.addEventListener("click",   _firstGesture, { once: true });
-    document.addEventListener("keydown", _firstGesture, { once: true });
+    document.addEventListener("click",   () => { _firstGesture(); void _ensureMicAccess(); }, { once: true });
+    document.addEventListener("keydown", () => { _firstGesture(); void _ensureMicAccess(); }, { once: true });
 
-    // Click-to-toggle on the on-screen mic button
-    micBtn.addEventListener("click",      toggle);
-    micBtn.addEventListener("touchstart", (e) => { e.preventDefault(); toggle(); });
+    // True push-to-talk on the on-screen mic button.
+    micBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      try { micBtn.setPointerCapture(e.pointerId); } catch {}
+      void beginHold();
+    });
+    micBtn.addEventListener("pointerup", endHold);
+    micBtn.addEventListener("pointercancel", endHold);
+    micBtn.addEventListener("lostpointercapture", endHold);
+    micBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+    window.addEventListener("pointerup", () => {
+      if (_holdingPtt) endHold();
+    });
+    window.addEventListener("blur", () => {
+      if (listening) stop({ commit: true });
+    });
 
     // BlueParrott B450-XT side button — three layers so it works regardless
     // of Karabiner install or browser focus state:
@@ -107,40 +209,61 @@ export function initVoice({ onTranscript, getReadable }) {
     //    the most reliable path for the BlueParrott during the demo.
     window.addEventListener("keydown", (e) => {
       if (e.code === "F19" || e.code === "MediaPlayPause") {
+        if (e.repeat) return;
         e.preventDefault();
-        toggle();
+        void beginHold();
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "F19" || e.code === "MediaPlayPause") {
+        e.preventDefault();
+        endHold();
       }
     });
 
     if ("mediaSession" in navigator) {
-      navigator.mediaSession.setActionHandler("play",  () => { if (!listening) toggle(); });
-      navigator.mediaSession.setActionHandler("pause", () => { if (listening)  toggle(); });
+      navigator.mediaSession.setActionHandler("play",  () => { if (!listening) beginHold(); });
+      navigator.mediaSession.setActionHandler("pause", () => { if (listening)  endHold(); });
     }
 
     recognition.addEventListener("result", (ev) => {
-      // With continuous=true, results accumulate — only take the latest final one.
-      const results = ev.results;
-      for (let i = ev.resultIndex; i < results.length; i++) {
-        if (results[i].isFinal) {
-          const transcript = results[i][0]?.transcript?.trim();
-          if (transcript && onTranscript) onTranscript(transcript);
+      for (let i = 0; i < ev.results.length; i++) {
+        const res = ev.results[i];
+        const transcript = _normalizeTranscript(res[0]?.transcript || "");
+        if (transcript) {
+          _resultTexts.set(i, transcript);
+        } else if (!res.isFinal) {
+          _resultTexts.delete(i);
         }
       }
+      _emitPartial();
     });
     recognition.addEventListener("end", () => {
-      // Browser stopped recognition — restart if the user hasn't toggled off.
-      if (listening) {
-        try { recognition.start(); } catch (e) { /* ignore */ }
+      if (_stopRequested) {
+        _stopRequested = false;
+        _commitTranscript();
+        _setMicUi(false);
+        return;
+      }
+      // Browser stopped recognition unexpectedly mid-PTT — resume while held.
+      if (_holdingPtt) {
+        listening = false;
+        try {
+          recognition.start();
+          listening = true;
+          _setMicUi(true);
+        } catch (e) { /* ignore */ }
       } else {
-        micBtn.classList.remove("listening");
-        micBtn.title = "Click to start listening · click again to stop";
+        listening = false;
+        _setMicUi(false);
       }
     });
     recognition.addEventListener("error", (ev) => {
       if (ev.error === "no-speech") return; // expected in continuous mode — just keep going
       listening = false;
-      micBtn.classList.remove("listening");
-      micBtn.title = "Click to start listening · click again to stop";
+      _holdingPtt = false;
+      _setMicUi(false);
+      if (onAbort) onAbort(ev.error || "recognition-error");
       console.warn("speech recognition error:", ev.error);
     });
   } else if (micBtn) {

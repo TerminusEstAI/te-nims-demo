@@ -2,6 +2,7 @@ services:
   te-nims:
     build: .
     image: terminusestai/te-nims-demo:latest
+    pull_policy: build
     container_name: te-nims-demo
     ports:
       - "8765:8765"     # Web UI — open http://localhost:8765
@@ -12,6 +13,11 @@ services:
       - te-nims-voices:/root/.severian  # Piper TTS voice files
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - SEVERIAN_VISION_URL=http://te-nims-vision:8081
+    # docker compose (non-Swarm) does not reliably enforce deploy.resources,
+    # so keep explicit container memory settings here for the judge/demo path.
+    mem_limit: 14g
+    mem_reservation: 8g
     deploy:
       resources:
         limits:
@@ -25,8 +31,58 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    depends_on:
+      te-nims-vision:
+        condition: service_started
 
+  te-nims-vision-models:
+    image: curlimages/curl:8.8.0
+    container_name: te-nims-demo-vision-models
+    restart: "no"
+    user: "0:0"
+    environment:
+      - VISION_GGUF_URL=${VISION_GGUF_URL:-https://huggingface.co/tmancino/severian-vision-gguf/resolve/main/severian-vision-q4_k_m.gguf}
+      - VISION_MMPROJ_URL=${VISION_MMPROJ_URL:-https://huggingface.co/tmancino/severian-vision-mmproj/resolve/main/mmproj-severian-vision.gguf}
+    volumes:
+      - te-nims-vision-models:/models
+    entrypoint:
+      - /bin/sh
+      - -ceu
+      - |
+        mkdir -p /models
+        if [ ! -s /models/severian-vision-q4_k_m.gguf ]; then
+          echo "▶ Downloading severian-vision GGUF (~5GB)..."
+          curl -L --fail --progress-bar -o /models/severian-vision-q4_k_m.gguf "$$VISION_GGUF_URL"
+        fi
+        if [ ! -s /models/mmproj-severian-vision.gguf ]; then
+          echo "▶ Downloading severian-vision mmproj (~355MB)..."
+          curl -L --fail --progress-bar -o /models/mmproj-severian-vision.gguf "$$VISION_MMPROJ_URL"
+        fi
+
+  te-nims-vision:
+    image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    container_name: te-nims-demo-vision
+    restart: unless-stopped
+    mem_limit: 10g
+    mem_reservation: 6g
+    depends_on:
+      te-nims-vision-models:
+        condition: service_completed_successfully
+    volumes:
+      - te-nims-vision-models:/models
+    command:
+      - -m
+      - /models/severian-vision-q4_k_m.gguf
+      - --mmproj
+      - /models/mmproj-severian-vision.gguf
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8081"
+      - --ctx-size
+      - "4096"
 volumes:
   te-nims-models:    # Persists the 5GB GGUF — never re-downloads after first run
   ollama-cache:      # Ollama internal model registry
   te-nims-voices:    # Piper TTS voice (60MB)
+  te-nims-vision-models:  # Vision GGUF + mmproj cached across restarts

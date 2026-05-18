@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=tmancino
-Group=tmancino
+User=root
+Group=root
 WorkingDirectory=/opt/llama.cpp-vision
 Environment=LD_LIBRARY_PATH=/opt/llama.cpp-vision/build/bin
 ExecStart=/opt/llama.cpp-vision/build/bin/llama-server \

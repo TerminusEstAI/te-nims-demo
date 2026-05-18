@@ -9,7 +9,7 @@ MBTiles uses TMS y-axis (origin bottom-left). Browsers / Leaflet send XYZ
 y-axis (origin top-left). We flip y on read.
 
 Usage:
-    cd DEMOS/severian-fob-web
+    cd te-nims-demo/web
     python3 serve.py                       # 0.0.0.0:8765, default mbtiles
     python3 serve.py --port 9000           # custom port
     python3 serve.py --mbtiles /path.mbtiles
@@ -122,7 +122,13 @@ def _resolve_ollama_url() -> str:
     return "http://127.0.0.1:11434"
 
 
+def _resolve_vision_url() -> str:
+    """Return the configured vision sidecar base URL, if any."""
+    return os.environ.get("SEVERIAN_VISION_URL", "").strip().rstrip("/")
+
+
 EMBED_OLLAMA_URL = _resolve_ollama_url()
+VISION_URL = _resolve_vision_url()
 EMBED_MODEL = os.environ.get("SEVERIAN_EMBED_MODEL", "nomic-embed-text")
 DOC_CHUNK_TOKENS = 500
 DOC_CHUNK_OVERLAP = 100
@@ -140,7 +146,6 @@ def _resolve_library_dir() -> Path:
         Path(__file__).parent / "library" / "pdfs",
         Path(__file__).parent.parent / "severian-ollama" / "library" / "pdfs",
         Path(__file__).resolve().parents[2] / "DEMOS" / "severian-ollama" / "library" / "pdfs",
-        Path.home() / "AI" / "TERMINUSEST-AI" / "DEMOS" / "severian-ollama" / "library" / "pdfs",
     ]
     for c in candidates:
         if c.is_dir() and any(c.glob("*.pdf")):
@@ -628,9 +633,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
                 _here.parent / "bin" / _exe,
                 # venv-local piper
                 _here / ".venv" / _venv_bin / _exe,
-                _here.parent.parent / "DEMOS" / "severian-fob-web" / ".venv" / _venv_bin / _exe,
-                Path.home() / "AI" / "TERMINUSEST-AI" / "DEMOS" / "severian-fob-web" / ".venv" / _venv_bin / _exe,
-                Path.home() / "AI" / "TERMINUSEST-AI" / "DEMOS" / "severian-ollama" / ".venv" / _venv_bin / _exe,
+                _here.parent / ".venv" / _venv_bin / _exe,
             ]
             for c in candidates:
                 if c.is_file():
@@ -707,27 +710,33 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         "/api/ps",
     }
 
-    def _proxy_ollama(self, method: str) -> None:
-        """Proxy Ollama API requests through serve.py to avoid browser CORS.
+    VISION_ALLOWED_PATHS = {
+        "/v1/chat/completions",
+        "/v1/models",
+        "/health",
+    }
 
-        Browser → GET/POST http://localhost:8765/api/ollama/<path>
-                → GET/POST EMBED_OLLAMA_URL/<path>
-
-        Streams the upstream response so /api/chat NDJSON works without
-        buffering the full response in memory.
-        """
+    def _proxy_streaming_request(
+        self,
+        *,
+        method: str,
+        prefix: str,
+        upstream_base: str,
+        allowed_paths: set[str],
+        error_label: str,
+    ) -> None:
+        """Stream an allow-listed upstream HTTP request back to the browser."""
         import urllib.request as _ur
         import urllib.error as _ue
 
-        upstream_path = self.path.removeprefix("/api/ollama")
+        upstream_path = self.path.removeprefix(prefix)
         if not upstream_path.startswith("/"):
             upstream_path = "/" + upstream_path
-        # Strip query string for allowlist check; preserve full path on proxy.
         path_only = upstream_path.split("?", 1)[0]
-        if path_only not in self.OLLAMA_ALLOWED_PATHS:
+        if path_only not in allowed_paths:
             self.send_error(403, "endpoint not available")
             return
-        upstream_url = f"{EMBED_OLLAMA_URL}{upstream_path}"
+        upstream_url = f"{upstream_base}{upstream_path}"
 
         body = b""
         if method == "POST":
@@ -739,21 +748,25 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             data=body or None,
             method=method,
         )
-        req.add_header("Content-Type",
-                       self.headers.get("Content-Type", "application/json"))
+        req.add_header(
+            "Content-Type",
+            self.headers.get("Content-Type", "application/json"),
+        )
 
         try:
             upstream = _ur.urlopen(req, timeout=300)
         except _ue.URLError as exc:
-            self.send_error(503, f"Ollama proxy: {exc.reason}")
+            self.send_error(503, f"{error_label}: {exc.reason}")
             return
         except OSError as exc:
-            self.send_error(503, f"Ollama proxy: {exc}")
+            self.send_error(503, f"{error_label}: {exc}")
             return
 
         self.send_response(upstream.status)
-        self.send_header("Content-Type",
-                         upstream.headers.get("Content-Type", "application/octet-stream"))
+        self.send_header(
+            "Content-Type",
+            upstream.headers.get("Content-Type", "application/octet-stream"),
+        )
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "close")
         self.end_headers()
@@ -768,6 +781,36 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
             pass
         finally:
             upstream.close()
+
+    def _proxy_ollama(self, method: str) -> None:
+        """Proxy Ollama API requests through serve.py to avoid browser CORS.
+
+        Browser → GET/POST http://localhost:8765/api/ollama/<path>
+                → GET/POST EMBED_OLLAMA_URL/<path>
+
+        Streams the upstream response so /api/chat NDJSON works without
+        buffering the full response in memory.
+        """
+        self._proxy_streaming_request(
+            method=method,
+            prefix="/api/ollama",
+            upstream_base=EMBED_OLLAMA_URL,
+            allowed_paths=self.OLLAMA_ALLOWED_PATHS,
+            error_label="Ollama proxy",
+        )
+
+    def _proxy_vision(self, method: str) -> None:
+        """Proxy the local vision sidecar through the same-origin web server."""
+        if not VISION_URL:
+            self.send_error(503, "vision sidecar not configured")
+            return
+        self._proxy_streaming_request(
+            method=method,
+            prefix="/vision",
+            upstream_base=VISION_URL,
+            allowed_paths=self.VISION_ALLOWED_PATHS,
+            error_label="Vision proxy",
+        )
 
     # ── Artifacts ────────────────────────────────────────────────────
     # Demo assets bundled with the app — always visible in every session's
@@ -1732,7 +1775,8 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         """GET /status → JSON health summary mirroring the CLI boot banner.
 
         Probes the same subsystems as chat.py _health_check():
-          Ollama daemon, model loaded, Doctrine RAG, Chat memory, TTS.
+          Ollama daemon, model loaded, vision sidecar, Doctrine RAG,
+          Chat memory, TTS.
         Returns each as {label, status("ok"|"warn"|"fail"), detail}.
         The web boot banner reads this to render the ● health panel.
         """
@@ -1776,16 +1820,24 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
                 Path.home() / ".severian" / "chunks.db",
                 Path(__file__).parent.parent / "severian-ollama" / "chunks.db",
                 _repo / "python" / "packages" / "te-formalize" / "store" / "chunks.db",
-                # chunks.db is untracked — only in main checkout, not worktrees
-                Path.home() / "AI" / "TERMINUSEST-AI" / "python" / "packages" / "te-formalize" / "store" / "chunks.db",
-                Path.home() / "AI" / "TERMINUSEST-AI" / "DIVISIONS" / "NIMS" / "SEVERIAN" / "DOCTRINE" / "NIMS" / "chunks.db",
-                Path(__file__).parent.parent / "severian-ollama" / "chunks.db",
+                _repo / "DIVISIONS" / "NIMS" / "SEVERIAN" / "DOCTRINE" / "NIMS" / "chunks.db",
             ]
             for c in candidates:
                 if c.is_file():
                     size_mb = c.stat().st_size / 1_000_000
                     return ("ok", f"{c.name} ({size_mb:.1f} MB)")
             return ("warn", "chunks.db not found — RAG disabled")
+
+        def _probe_vision() -> tuple[str, str]:
+            if not VISION_URL:
+                return ("warn", "SEVERIAN_VISION_URL not configured")
+            try:
+                with _ur.urlopen(f"{VISION_URL}/health", timeout=5) as r:
+                    if r.status == 200:
+                        return ("ok", VISION_URL)
+            except Exception as exc:
+                return ("warn", f"{VISION_URL} ({type(exc).__name__})")
+            return ("warn", f"{VISION_URL} (unexpected response)")
 
         def _probe_memory() -> tuple[str, str]:
             qdrant = Path.home() / ".severian" / "chats" / "qdrant"
@@ -1803,6 +1855,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         checks_fns = [
             ("Ollama daemon",   _probe_ollama),
             ("severian-ollama", _probe_model),
+            ("Vision sidecar",  _probe_vision),
             ("Doctrine RAG",    _probe_rag),
             ("Chat memory",     _probe_memory),
             ("TTS",             _probe_tts),
@@ -3256,6 +3309,10 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith("/api/ollama/"):
             self._proxy_ollama("POST")
             return
+        # POST /vision/<path> → vision llama-server proxy (same-origin multimodal)
+        if self.path.startswith("/vision/"):
+            self._proxy_vision("POST")
+            return
         self.send_error(405, "method not allowed")
 
     def do_PUT(self) -> None:  # noqa: N802
@@ -3463,6 +3520,10 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         # GET /api/ollama/<path> → Ollama proxy (avoids browser CORS)
         if self.path.startswith("/api/ollama/"):
             self._proxy_ollama("GET")
+            return
+        # GET /vision/<path> → vision llama-server proxy
+        if self.path.startswith("/vision/"):
+            self._proxy_vision("GET")
             return
         # Match /tiles/<z>/<x>/<y>.png
         if self.path.startswith("/tiles/"):
