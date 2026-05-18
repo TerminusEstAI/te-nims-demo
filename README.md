@@ -94,6 +94,62 @@ Type **`/demo`** in the chat to load the scenario, or click **▶ Demo Walkthrou
 
 ---
 
+## Agentic Harness Design
+
+TE NIMS is not a chatbot wrapper around a model — it is an **agentic harness** where the model is one component of a larger decision pipeline. This distinction matters for emergency management, where answers must be grounded in doctrine, traceable to sources, and verifiable after the fact.
+
+### ReAct Tool Loop
+
+Every user query passes through a multi-step ReAct (Reason + Act) loop before a response is generated:
+
+```
+User query
+    │
+    ▼
+┌─────────────────────────────────────────────────────┐
+│  severian-ollama (Gemma 4 E4B fine-tune)            │
+│                                                     │
+│  1. Reason: analyze query, identify what data needed│
+│  2. Act:    emit <tool_call> to fetch live data     │
+│  3. Observe: receive tool result                    │
+│  4. Reason: ground answer in doctrine + live data   │
+│  5. Respond: final answer with citations            │
+└─────────────────────────────────────────────────────┘
+```
+
+Available tools the model can invoke:
+- `get_scenario_info` — load incident context (location, damage data, staging areas)
+- `search_doctrine` — RAG over NIMS/ICS doctrine corpus (50K+ chunks)
+- `pin_map_location` — place a marker on the live geo map
+- `zoom_map` — focus the map on a specific location
+- `toggle_map_layer` — show/hide damage track or building assessment overlays
+
+The harness routes tool calls, executes them server-side, and injects results back into the conversation before the model generates its final answer. Judges never see raw tool traces — only the grounded response.
+
+### Provenance Chain
+
+Every chat turn produces a signed block in the VPO (Verified Provenance Object) chain:
+
+```
+genesis block
+     │
+     ▼  prev_signature + HMAC-SHA256
+turn 1 block → {query, response, tool_calls, timestamp, signature}
+     │
+     ▼  prev_signature + HMAC-SHA256
+turn 2 block → {query, response, tool_calls, timestamp, signature}
+     │
+    ...
+```
+
+This creates an append-only audit log of the entire incident session — every decision, every tool call, every doctrine citation — that survives page reloads and can be exported for post-incident review. In production, the signing key would be held by the agency's command structure, not shared.
+
+### Session Isolation
+
+Each visitor receives a cryptographically random session cookie (`svs_session`). All artifacts, uploads, memory, and chain blocks are scoped to that session — judges cannot see each other's work.
+
+---
+
 ## Architecture
 
 ```
