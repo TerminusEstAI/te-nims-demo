@@ -67,7 +67,7 @@ const STEPS = [
   },
   {
     n: 10,
-    body: "TE NIMS is fully geo-aware. Future work will include TAK and WebEOC cross-compatibility. The Track button on the map shows a simulated damage track, and the Buildings button shows building damage. Both were created with real-time tools by TE NIMS Labs that will be integrated into future versions — allowing First Responders to instantly estimate damage by building type.",
+    body: "<span style='opacity:.5;font-size:10px;display:block;margin-bottom:8px'>Click on the new TE NIMS Doc to see the saved org chart.</span>TE NIMS is fully geo-aware. Future work will include TAK and WebEOC cross-compatibility. The Track button on the map shows a simulated damage track, and the Buildings button shows building damage. Both were created with real-time tools by TE NIMS Labs that will be integrated into future versions — allowing First Responders to instantly estimate damage by building type.",
     query: "What building types are most at risk in the Moore tornado damage corridor?",
   },
   {
