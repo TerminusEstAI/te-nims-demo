@@ -92,6 +92,12 @@ const STEPS = [
   },
   {
     n: 15,
+    body: "TE NIMS uses a custom data retrieval protocol over 114 federal databases. For offline use like this demo, it allows the loading of Gold parquets bundled within the docker image for specific geographies like Oklahoma City. This demo contains 2,463 records of custom data as shown.",
+    informational: true,
+    tab: "data",
+  },
+  {
+    n: 16,
     body: "Thank you for checking out TE NIMS. We built it out of need after 40 years of disaster management — we know that AI will save lives!",
     informational: true,
     dedication: "This project is dedicated to the brave first responders we have had the honor to work with over the decades.",
