@@ -1934,8 +1934,8 @@ footer {
 .te-tour-drag-hint {
   text-align: center;
   font-size: 9px;
-  color: var(--te-dim, #888);
-  opacity: 0.55;
+  color: var(--te-orange, #e8551a);
+  opacity: 0.7;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
   pointer-events: none;
