@@ -33,7 +33,7 @@ services:
       start_period: 60s
     depends_on:
       te-nims-vision:
-        condition: service_started
+        condition: service_healthy
 
   te-nims-vision-models:
     image: curlimages/curl:8.8.0
@@ -81,6 +81,12 @@ services:
       - "8081"
       - --ctx-size
       - "4096"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 volumes:
   te-nims-models:    # Persists the 5GB GGUF — never re-downloads after first run
   ollama-cache:      # Ollama internal model registry
