@@ -267,6 +267,7 @@ function _renderStep(step) {
   const needsImage = !!step.waitForImage;
 
   const m = _setModalContent(`
+    <div class="te-tour-drag-hint">☰ drag to move</div>
     <div class="te-tour-float-header">
       <div class="te-tour-dots">${_dots(step.n - 1)}</div>
       <span class="te-tour-badge">Step ${step.n} / ${TOTAL}</span>

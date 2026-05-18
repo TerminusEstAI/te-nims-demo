@@ -1931,6 +1931,16 @@ footer {
   z-index: 8000;
   font-size: 12px;
 }
+.te-tour-drag-hint {
+  text-align: center;
+  font-size: 9px;
+  color: var(--te-dim, #888);
+  opacity: 0.55;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  pointer-events: none;
+  user-select: none;
+}
 .te-tour-float-header {
   display: flex;
   align-items: center;
