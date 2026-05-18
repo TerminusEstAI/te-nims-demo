@@ -2145,7 +2145,8 @@ footer {
 /* Video placeholder */
 .te-welcome-video-wrap {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
 }
 .te-welcome-video-placeholder {
   width: 100%;
