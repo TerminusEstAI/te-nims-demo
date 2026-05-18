@@ -139,7 +139,11 @@ Type **`/demo`** in the chat to load the scenario, or click **▶ Demo Walkthrou
 **Base model:** [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it)  
 **GGUF for inference:** [tmancino/te-nims-e4b-stage9-gguf](https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf) (Q4_K_M, 5.3GB)
 
-Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, and emergency management scenarios. Trained with [MLX](https://github.com/ml-explore/mlx) on Apple Silicon. ODA bench score: **0.916** on the 52-case TE NIMS evaluation set.
+Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, and emergency management scenarios. Trained with [MLX](https://github.com/ml-explore/mlx) on Apple Silicon.
+
+**Evaluation:** ODA (Operational Decision Accuracy) score **0.916** on the 52-case TE NIMS internal benchmark. See [docs/ODA-BENCHMARK.md](docs/ODA-BENCHMARK.md) for full methodology, scoring rubric, and limitations.
+
+> *Developing benchmark — not yet peer-reviewed. Single reviewer, significant train/test overlap. Treat as an internal signal, not an externally-validated score.*
 
 ---
 
