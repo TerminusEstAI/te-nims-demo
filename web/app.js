@@ -2737,6 +2737,9 @@ function showWelcomeModal() {
             <div class="te-welcome-video-label">Demo Video</div>
             <div class="te-welcome-video-sub">Coming soon</div>
           </div>
+          <a class="te-welcome-yt-link" href="https://www.youtube.com" target="_blank" rel="noopener">
+            ▶ Watch on YouTube
+          </a>
         </div>
       </div>
 

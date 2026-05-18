@@ -2168,6 +2168,17 @@ footer {
 }
 .te-welcome-video-label { color: var(--te-white); font-size: 12px; font-weight: 700; }
 .te-welcome-video-sub   { color: var(--te-dim, #888); font-size: 10px; }
+.te-welcome-yt-link {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  color: var(--te-orange);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: .03em;
+}
+.te-welcome-yt-link:hover { text-decoration: underline; opacity: .85; }
 /* Actions */
 .te-welcome-actions { display: flex; gap: 10px; }
 .te-welcome-cta {
