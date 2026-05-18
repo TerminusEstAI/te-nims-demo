@@ -40,7 +40,7 @@ The live demo at **https://demo.terminusest.ai** simulates the IC arriving at th
 
 ### Fine-Tuned Model: TE NIMS E4B Stage 9
 
-The base model is **Gemma 4 E4B** (4B-parameter dense edge model — note: "E" = edge, not Mixture-of-Experts). We chose E4B because the operational deployment target is a forward operating base (FOB) laptop with 8GB VRAM, no internet, and a single GPU. A 4B dense model is the largest class that quantizes cleanly to ~5GB Q4_K_M while preserving doctrinal accuracy.
+The shipped text model is **TE NIMS E4B Stage 9**, built on **Google Gemma 4 E4B**. Gemma 4 E4B is Google's dense, edge-targeted E4B model; in Google's naming, **E means effective parameters**, not "edge" and not Mixture-of-Experts. The public TE NIMS deployment artifact is packaged as a **Q4_K_M GGUF (~5.3GB)** for the local Docker and Ollama runtime used by the demo.
 
 #### What we trained on
 
@@ -66,11 +66,11 @@ The 9-stage chain alternates SFT (recipe refinement) and RL (alignment to operat
 
 #### How we ran the training
 
-- **Phase 1 — Mac Studio MLX (exploration):** `mlx_lm.lora` against `mlx-community/gemma-4-e4b-it-4bit`. Fast 15-minute iterations, free, used to find the right hyperparameters and recipe. Loop: train → evaluate 5 Moore tornado scenarios → tune → repeat until ODA ≥ 0.80.
-- **Phase 2 — RunPod A100 + Unsloth (final run):** Once the recipe was locked, `train_sft_unsloth.py` on an A100 (~2× Studio throughput). Output safetensors → MLX fuse/dequantize → `convert_hf_to_gguf.py` → `llama-quantize Q4_K_M` → Ollama Modelfile.
-- **Telemetry:** Every run logged via MLflow (loss, KL, reward, eval scores) + DVC for artifact lineage. Both Mac Studio MLX and RunPod runs use the same `TrainingRun` wrapper for consistent provenance.
+- **Training path — Mac Studio MLX:** The shipped Stage 9 demo artifact was produced on the Mac Studio / Apple M3 Ultra using the MLX training path. The repo's Stage 9 lineage records a warm-started SFT run on a focused IC recommendation corpus, followed by direct evaluation on the 52-case internal gate.
+- **Packaging for deployment:** After training, the Stage 9 artifact was packaged into the local inference stack used by the public demo, including the Ollama-compatible GGUF deployment artifact.
+- **Telemetry and lineage:** The repo records this lineage through MLflow-linked run IDs, DVC-tracked run artifacts, the local model registry, and evaluation outputs.
 
-**ODA Score: 0.916** on the 52-case TE NIMS internal benchmark (Operational Decision Accuracy — see `docs/ODA-BENCHMARK.md` for full methodology and honest limitations). This is a developing internal benchmark, not peer-reviewed.
+**Evaluation distinction:** the repo records **two different numbers** that should not be conflated. The **direct Stage 9 checkpoint eval** is **0.7108** on the 52-case internal gate. The higher **0.916** ODA number refers to the **full TE NIMS harness** on the same internal bench, with retrieval and workflow tooling enabled. Both are internal measurements rather than peer-reviewed benchmarks, and the distinction matters.
 
 The text deployment artifact is available as a 5.3GB Q4_K_M GGUF at [tmancino/te-nims-e4b-stage9-gguf](https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf) and runs via Ollama with no cloud API calls. The corresponding Stage 9 adapter/training artifact lives at [tmancino/te-nims-e4b-stage9](https://huggingface.co/tmancino/te-nims-e4b-stage9).
 

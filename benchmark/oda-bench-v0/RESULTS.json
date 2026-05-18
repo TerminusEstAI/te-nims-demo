@@ -1,0 +1,34 @@
+{
+  "benchmark_id": "te-nims-oda-bench-v0",
+  "results": [
+    {
+      "system_id": "te-nims-e4b-stage9-direct-checkpoint",
+      "mode": "direct_model",
+      "score": 0.7108,
+      "case_count": 52,
+      "status": "PASS",
+      "provenance": {
+        "source": "repo_record",
+        "model_record": "AI/models/llm/te-nims-stage9.toml",
+        "iteration_record": "AI/loop-iterations/iter-107.json",
+        "notes": "Direct MLXLM checkpoint eval on the published 52-case gate."
+      }
+    },
+    {
+      "system_id": "te-nims-full-harness-stage9",
+      "mode": "full_harness",
+      "score": 0.916,
+      "case_count": 52,
+      "status": "documented",
+      "provenance": {
+        "source": "repo_docs",
+        "primary_doc": "docs/ODA-BENCHMARK.md",
+        "supporting_docs": [
+          "docs/KAGGLE-WRITEUP.md",
+          "docs/huggingface/README-te-nims-e4b-stage9-gguf.md"
+        ],
+        "notes": "Full retrieval-and-tools harness score on the same 52-case bench. Raw harness run output is not bundled in this benchmark package yet."
+      }
+    }
+  ]
+}

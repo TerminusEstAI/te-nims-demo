@@ -1,0 +1,29 @@
+{
+  "benchmark_id": "te-nims-oda-bench-v0",
+  "name": "TE NIMS Operational Decision Accuracy Benchmark v0",
+  "status": "developing-internal",
+  "version": "0.1.0",
+  "case_count": 52,
+  "task_type": "doctrine-grounded incident-command decision support",
+  "domain": "US NIMS / ICS emergency management",
+  "primary_metric": "oda_score",
+  "score_range": [0.0, 1.0],
+  "published_artifacts": {
+    "cases_path": "benchmark/oda-bench-v0/cases.jsonl",
+    "cases_sha256": "973d5e0fd4361320abddfe824532d3b8aae34e119f51e4c99a219cb08743e640",
+    "results_path": "benchmark/oda-bench-v0/RESULTS.json"
+  },
+  "source_provenance": {
+    "case_source": "AI/evals/environments/kaggle_demo/eval-cases.jsonl",
+    "rubric_source": "AI/evals/environments/kaggle_demo/rubric.py",
+    "stage9_model_record": "AI/models/llm/te-nims-stage9.toml",
+    "stage9_iteration_record": "AI/loop-iterations/iter-107.json"
+  },
+  "limitations": [
+    "single-reviewer internal benchmark",
+    "significant train/eval overlap risk",
+    "no confidence intervals published in v0",
+    "no adversarial or out-of-distribution slice in v0",
+    "full-harness score is documented in repo materials but raw harness run output is not bundled here"
+  ]
+}

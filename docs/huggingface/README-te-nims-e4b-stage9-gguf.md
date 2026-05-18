@@ -42,6 +42,16 @@ Ollama as `severian-ollama`.
 
 - Base model: `google/gemma-4-E4B-it`
 
+## Evaluation notes
+
+- Direct Stage 9 checkpoint eval: `0.7108` on the 52-case internal gate
+- Full TE NIMS harness eval: `0.916` on the same internal bench with
+  retrieval and workflow tooling enabled
+
+These two numbers refer to different evaluation modes and should not be
+presented as the same thing. This GGUF repo is the deployable text inference
+artifact, not the full harness.
+
 ## Notes
 
 - This repo is for deployment and inference.

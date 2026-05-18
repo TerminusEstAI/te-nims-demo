@@ -10,9 +10,17 @@
 ## Overview
 
 The **Operational Decision Accuracy (ODA)** score measures how well TE NIMS produces
-correct, doctrine-grounded responses to realistic Incident Commander questions. A score
-of **0.916** was achieved by the `te-nims-e4b-stage9` checkpoint on a 52-case hand-curated
-evaluation set.
+correct, doctrine-grounded responses to realistic Incident Commander questions.
+This repo now publishes the 52-case benchmark bundle under
+[`benchmark/oda-bench-v0/`](../benchmark/oda-bench-v0/).
+
+The most important clarification is that the repo tracks **two different Stage 9
+results** on the same 52-case set:
+
+- **0.7108** — direct Stage 9 checkpoint eval
+- **0.916** — full TE NIMS harness eval with retrieval and workflow tooling enabled
+
+Those numbers refer to different evaluation modes and should not be conflated.
 
 ---
 
@@ -52,6 +60,10 @@ Each response is scored across three dimensions (0–1 scale each), averaged:
 
 Final ODA = weighted average across all 52 cases.
 
+The published prompt set is available at:
+
+- [`benchmark/oda-bench-v0/cases.jsonl`](../benchmark/oda-bench-v0/cases.jsonl)
+
 ### Evaluation Process
 
 - Responses generated with temperature=0 (greedy decoding) for reproducibility
@@ -64,16 +76,15 @@ Final ODA = weighted average across all 52 cases.
 
 ## Results
 
-| Model checkpoint | ODA Score | Cases |
-|-----------------|-----------|-------|
-| `te-nims-e4b-stage3` (SFT baseline) | 0.741 | 52 |
-| `te-nims-e4b-stage5` | 0.823 | 52 |
-| `te-nims-e4b-stage9` **(production)** | **0.916** | 52 |
-| `te-nims-e4b-stage10` (GRPO, collapsed) | — | — |
+### Published v0 results
 
-Stage 10 GRPO training was attempted but collapsed at step 7 (policy collapse,
-reward variance → 0.0004, model saturation). Stage 9 is the final production
-checkpoint.
+| System | Eval mode | ODA Score | Cases | Provenance status |
+|---|---|---:|---:|---|
+| `te-nims-e4b-stage9` | Direct checkpoint eval | **0.7108** | 52 | Backed by the Stage 9 local model record and loop-iteration record |
+| `te-nims-full-harness-stage9` | Full retrieval-and-tools harness | **0.916** | 52 | Documented in repo docs; raw harness output not yet bundled here |
+
+Stage 9 is the final published production checkpoint in this demo path.
+Stage 10 GRPO was attempted later but did not become the shipped demo artifact.
 
 ---
 
@@ -97,6 +108,10 @@ checkpoint.
 
 6. **Evaluator = trainer** — the domain expert who calibrated the test set also provided
    feedback during training. Bias from this overlap cannot be fully excluded.
+
+7. **Mixed provenance depth** — the direct Stage 9 checkpoint score is backed by checked-in
+   model lineage records, while the higher full-harness score is currently documented in repo
+   materials but does not yet ship with a checked-in raw harness run artifact in this bundle.
 
 ---
 

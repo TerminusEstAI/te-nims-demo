@@ -230,7 +230,7 @@ canonical runtime-to-artifact mapping.
 
 Training: 9-stage SFT warm-start chain on FEMA NIMS doctrine, ICS procedures, and emergency management scenarios. Trained with [MLX](https://github.com/ml-explore/mlx) on Apple Silicon.
 
-**Evaluation:** ODA (Operational Decision Accuracy) score **0.916** on the 52-case TE NIMS internal benchmark. See [docs/ODA-BENCHMARK.md](docs/ODA-BENCHMARK.md) for full methodology, scoring rubric, and limitations.
+**Evaluation:** the repo documents two different scores on the 52-case TE NIMS internal benchmark: **0.7108** for the direct Stage 9 checkpoint and **0.916** for the full TE NIMS harness with retrieval/tools enabled. See [docs/ODA-BENCHMARK.md](docs/ODA-BENCHMARK.md) and [benchmark/oda-bench-v0](benchmark/oda-bench-v0/README.md) for methodology, published cases, and limitations.
 
 > *Developing benchmark — not yet peer-reviewed. Single reviewer, significant train/test overlap. Treat as an internal signal, not an externally-validated score.*
 
