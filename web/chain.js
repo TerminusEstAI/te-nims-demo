@@ -81,16 +81,63 @@ async function mirrorBlockToServer(block) {
       headers: { "Content-Type": "application/json" },
       body,
     });
+    if (resp.ok) return;
+
     if (resp.status === 409 && block.prev_signature == null) {
       // Server chain has stale blocks from a prior session but client is
       // starting fresh (genesis block). Reset the server chain and retry once.
       await fetch("/demo/reset", { method: "POST",
         headers: { "Content-Type": "application/json" }, body: "{}" });
-      await fetch("/chain", { method: "POST",
+      const retry = await fetch("/chain", { method: "POST",
         headers: { "Content-Type": "application/json" }, body });
-    } else if (!resp.ok) {
-      console.warn("[chain mirror] POST /chain failed:", resp.status);
+      if (!retry.ok) console.warn("[chain mirror] genesis-reset retry failed:", retry.status);
+      return;
     }
+
+    if (resp.status === 409) {
+      // prev_signature mismatch: client has more local blocks than the server
+      // (e.g. operator reloaded mid-session, IndexedDB persisted, server-side
+      // session cookie was fresh so the mirror file is empty or stale).
+      // Replay the client's local backlog so the server catches up to where
+      // this block fits, then re-post this block.
+      let info = null;
+      try { info = await resp.clone().json(); } catch { /* legacy text body */ }
+      const serverLastSig = info?.server_last_signature || null;
+      const local = await loadAllBlocks();
+      // Find the index of the server's last-known block in the local chain.
+      let startIdx = 0;
+      if (serverLastSig) {
+        const idx = local.findIndex((b) => b.signature === serverLastSig);
+        startIdx = idx >= 0 ? idx + 1 : 0;
+      }
+      // Replay every local block from startIdx through the current one. The
+      // current `block` should already be in local (saveBlock ran before mirror),
+      // so we don't need to post it separately.
+      const backlog = local.slice(startIdx);
+      let replayed = 0;
+      for (const b of backlog) {
+        try {
+          const r = await fetch("/chain", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify(b),
+          });
+          if (!r.ok) {
+            console.warn("[chain mirror] backlog replay failed at block",
+              b.signature?.slice(0, 12), "status", r.status);
+            break;
+          }
+          replayed++;
+        } catch (e) {
+          console.warn("[chain mirror] backlog replay error:", e);
+          break;
+        }
+      }
+      console.info(`[chain mirror] reconciled — replayed ${replayed} block(s) to server`);
+      return;
+    }
+
+    console.warn("[chain mirror] POST /chain failed:", resp.status);
   } catch (e) {
     console.warn("[chain mirror] /chain unreachable:", e);
   }
