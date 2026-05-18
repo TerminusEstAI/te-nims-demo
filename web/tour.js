@@ -25,15 +25,15 @@ const STEPS = [
     n: 3,
     body: "<span class='te-tour-note'>🔊 Note — You should hear the voice agent in a few seconds. To turn it off click the speaker icon at the bottom right.</span>TE NIMS can generate the data for ICS forms on demand. In the live version these forms can be saved live to the ICS Form Directory.",
     query: "Generate an initial ICS-201 Incident Briefing for this incident.",
-    preSubmit: () => {
-      const ttsBtn = document.getElementById("tts");
-      if (ttsBtn && ttsBtn.classList.contains("active")) ttsBtn.click();
-    },
   },
   {
     n: 4,
     body: "TE NIMS grounds every recommendation in NIMS doctrine. Ask about your ICS priorities.",
     query: "What are my immediate ICS priorities for life safety in the first operational period?",
+    preSubmit: () => {
+      const ttsBtn = document.getElementById("tts");
+      if (ttsBtn && ttsBtn.classList.contains("active")) ttsBtn.click();
+    },
   },
   {
     n: 5,
