@@ -2868,7 +2868,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
   <label class="btn" for="file-input">📷 Take Photo / Choose File</label>
   <input id="file-input" type="file" accept="image/*,application/pdf,.json,.txt,.csv" capture="environment">
   <img id="preview">
-  <button id="send-btn" class="btn" style="margin-top:12px">⬆ Send to Severian</button>
+  <button id="send-btn" class="btn" style="margin-top:12px">⬆ Send to TE NIMS</button>
   <div id="status">Ready</div>
   <div id="error"></div>
   <script>
