@@ -48,7 +48,7 @@ const STEPS = [
   },
   {
     n: 7,
-    body: "The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.<br><br>Filter or open any document from the Library. Library contents are available to the AI via Retrieval Augmented Search.",
+    body: "<span style='color:#e8551a;font-size:10px;font-weight:700;display:block;margin-bottom:8px'>📌 Note: You can drag this window out of the map area.</span>The Library tab contains all major NIMS and ICS data and training materials. Items here are available via Retrieval Augmented Search (RAG) as well.<br><br>Filter or open any document from the Library. Library contents are available to the AI via Retrieval Augmented Search.",
     query: "search doctrine for 'what are search team roles.'",
     tab: "library",
   },
