@@ -326,7 +326,7 @@ function _renderFinalCard() {
       <button class="te-tour-close" type="button" aria-label="Close">✕</button>
     </div>
     <div class="te-tour-float-body">
-      Every chat message is documented with a cryptographic provenance chain to ensure auditability.
+      Every chat message is documented with a demo provenance chain (demo signing key — illustrative) to demonstrate auditability.
       Click <strong>▸ VPO Chain</strong> to see the entire chain. This is critical for documentation
       and auditability of disaster management incidents and can be used to recreate or document
       entire operational turns.

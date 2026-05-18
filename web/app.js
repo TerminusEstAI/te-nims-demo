@@ -1031,8 +1031,12 @@ async function initSigningIdentity() {
       return;
     }
     const spec = await resp.json();
-    if (spec && spec.key_id && spec.key) {
-      VPO_SIGNING_IDENTITY = spec;
+    // /signing-key returns identity metadata ONLY (no raw "key" field).
+    // Merge over the demo fallback so VPO_SIGNING_IDENTITY.key_id reflects
+    // server-side identity for banner classification; the raw .key remains
+    // the demo placeholder (unused — actual signing is server-side via /vpo/sign).
+    if (spec && spec.key_id) {
+      VPO_SIGNING_IDENTITY = { ..._DEMO_KEY, ...spec };
       console.info(`[vpo] active signing identity: ${spec.key_id} (${spec.loaded_from || "?"})`);
     }
   } catch (e) {
@@ -2698,7 +2702,7 @@ function showWelcomeModal() {
           <p class="te-welcome-body">
             TE NIMS is an agentic AI harness running a fine-tuned <strong>Gemma 4</strong> LLM built to support
             Incident Commanders with doctrine-grounded decision support, ICS form generation,
-            geo-spatial awareness, and a cryptographic provenance chain — fully offline, edge-deployable.
+            geo-spatial awareness, and a demo provenance chain — fully offline, edge-deployable.
           </p>
           <p class="te-welcome-body">
             This demo runs the <strong>Moore 2013 EF5 Tornado</strong> scenario with real NWS track data
