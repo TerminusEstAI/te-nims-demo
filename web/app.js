@@ -2730,14 +2730,12 @@ function showWelcomeModal() {
           </div>
         </div>
 
-        <!-- Video placeholder -->
+        <!-- Video embed -->
         <div class="te-welcome-video-wrap">
-          <div class="te-welcome-video-placeholder">
-            <div class="te-welcome-video-icon">▶</div>
-            <div class="te-welcome-video-label">Demo Video</div>
-            <div class="te-welcome-video-sub">Coming soon</div>
-          </div>
-          <a class="te-welcome-yt-link" href="https://www.youtube.com" target="_blank" rel="noopener">
+          <video class="te-welcome-video-player" controls preload="metadata" poster="">
+            <source src="/Kaggle_Demo_Video_Final.mp4" type="video/mp4">
+          </video>
+          <a class="te-welcome-yt-link" href="https://www.youtube.com/watch?v=uPSESavENoE" target="_blank" rel="noopener">
             ▶ Watch on YouTube
           </a>
         </div>
