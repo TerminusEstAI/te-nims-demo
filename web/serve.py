@@ -2905,13 +2905,29 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
     async function upload(files) {{
       const status = document.getElementById("status");
       const err    = document.getElementById("error");
+      err.textContent = "";
+      if (!files || !files.length) {{ err.textContent = "No file selected"; return; }}
+      status.textContent = "Got " + files.length + " file(s), preparing…";
       for (const orig of files) {{
-        const f = await normalizeForUpload(orig);
-        status.textContent = "Uploading " + f.name + "…";
-        const fd = new FormData(); fd.append("file", f);
-        const r = await fetch(_UPLOAD_URL, {{method:"POST",body:fd}}).catch(e=>{{err.textContent=e.message;return null}});
-        if (!r || !r.ok) {{ err.textContent = "Upload failed"; continue; }}
-        status.textContent = "✓ " + f.name + " uploaded successfully!";
+        try {{
+          status.textContent = "Preparing " + (orig.name || "photo") + " (" + Math.round((orig.size||0)/1024) + " KB)…";
+          // Try canvas-normalize with a 6-second budget; fall back to raw file
+          // so a flaky HEIC decode on iOS never strands the upload.
+          let f = orig;
+          if (!/^image\\/(jpe?g|png|gif|webp|bmp)$/i.test(orig.type)) {{
+            const norm = normalizeForUpload(orig);
+            const timeout = new Promise(res => setTimeout(() => res(orig), 6000));
+            f = await Promise.race([norm, timeout]);
+          }}
+          status.textContent = "Uploading " + (f.name || orig.name) + "…";
+          const fd = new FormData(); fd.append("file", f);
+          const r = await fetch(_UPLOAD_URL, {{method:"POST",body:fd}});
+          if (!r.ok) {{ err.textContent = "Upload failed: HTTP " + r.status; continue; }}
+          const j = await r.json().catch(() => ({{}}));
+          status.textContent = "✓ " + (j.id || f.name) + " uploaded successfully!";
+        }} catch (e) {{
+          err.textContent = "Error: " + (e && e.message ? e.message : e);
+        }}
       }}
     }}
     document.getElementById("camera").addEventListener("change",  e => upload(e.target.files));
