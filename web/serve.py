@@ -474,9 +474,11 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
     mbtiles_path: str = DEFAULT_MBTILES  # set on the class before instantiation
 
     def _init_session(self) -> None:
+        from urllib.parse import urlparse as _up, parse_qs as _pqs  # noqa: PLC0415
+        force_new = "newsession" in _pqs(_up(self.path).query)
         cookies = _http_cookies.SimpleCookie(self.headers.get("Cookie", ""))
         morsel = cookies.get("svs_session")
-        if morsel and len(morsel.value) == 36:
+        if not force_new and morsel and len(morsel.value) == 36:
             _session_local.session_id = morsel.value
             self._new_session = False
         else:

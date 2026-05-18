@@ -1792,17 +1792,18 @@ async function _fullNukeAndReload(autoload) {
     }));
   } catch (e) { /* ignore */ }
 
-  // 7. Reload — build fresh URL preserving the ollama param
+  // 7. Reload — build fresh URL preserving the ollama param.
+  // Always add newsession=1 so the server ignores the old HttpOnly cookie
+  // and stamps a brand-new session, clearing old uploads/artifacts.
   const params = new URLSearchParams(window.location.search);
   const ollama = params.get("ollama");
   let url = window.location.pathname;
   const qs = new URLSearchParams();
   if (ollama) qs.set("ollama", ollama);
   if (autoload) qs.set("autoload", autoload);
-  // When loading demo, set scenario to moore-tornado-2013 so activeScenario() picks it
   if (autoload === "demo") qs.set("scenario", "moore-tornado-2013");
-  const qstr = qs.toString();
-  window.location.replace(url + (qstr ? "?" + qstr : ""));
+  qs.set("newsession", "1");
+  window.location.replace(url + "?" + qs.toString());
 }
 
 const SLASH_COMMANDS = {
