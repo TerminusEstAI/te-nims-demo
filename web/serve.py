@@ -3467,7 +3467,20 @@ def main() -> None:
 
     TileHandler.mbtiles_path = str(mbtiles)
     socketserver.ThreadingTCPServer.allow_reuse_address = True
-    with socketserver.ThreadingTCPServer(("", args.port), TileHandler) as httpd:
+    # SO_REUSEPORT lets a new process bind the port even while a dying process
+    # still technically holds it, solving the zombie-blocks-restart problem.
+    import socket as _socket  # noqa: PLC0415
+    socketserver.ThreadingTCPServer.allow_reuse_port = True
+
+    class _ReusePortServer(socketserver.ThreadingTCPServer):
+        def server_bind(self):
+            try:
+                self.socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEPORT, 1)
+            except (AttributeError, OSError):
+                pass
+            super().server_bind()
+
+    with _ReusePortServer(("", args.port), TileHandler) as httpd:
         print(f"Serving : http://localhost:{args.port}", file=sys.stderr)
         print(f"Static  : {here}", file=sys.stderr)
         try:
