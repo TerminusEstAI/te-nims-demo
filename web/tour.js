@@ -29,7 +29,7 @@ const STEPS = [
   {
     n: 4,
     body: "TE NIMS grounds every recommendation in NIMS doctrine. Ask about your ICS priorities.",
-    query: "What are my immediate ICS priorities for life safety in the first operational period?",
+    query: "What are my immediate ICS priorities according to doctrine for life safety in the first operational period?",
     preSubmit: () => {
       const ttsBtn = document.getElementById("tts");
       if (ttsBtn && ttsBtn.classList.contains("active")) ttsBtn.click();
