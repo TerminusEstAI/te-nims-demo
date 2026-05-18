@@ -26,7 +26,7 @@ All of this must happen in minutes, with no time for reference material, using t
 
 ---
 
-![TE NIMS in action — IC at the command post](images/te-nims-incident_scene.png)
+!(images/te-nims-incident_scene.png)
 
 ## What TE NIMS Is
 
@@ -40,11 +40,35 @@ The live demo at **https://demo.terminusest.ai** simulates the IC arriving at th
 
 ### Fine-Tuned Model: TE NIMS E4B Stage 9
 
-The base model is Gemma 4 E4B (4B parameter dense edge model), fine-tuned through a 9-stage SFT warm-start chain on:
-- FEMA National Incident Management System (NIMS) doctrine
-- Incident Command System (ICS) field manuals and form specifications
-- After-action reports from real disaster incidents
-- 50,000+ curated doctrinal elements
+The base model is **Gemma 4 E4B** (4B-parameter dense edge model — note: "E" = edge, not Mixture-of-Experts). We chose E4B because the operational deployment target is a forward operating base (FOB) laptop with 8GB VRAM, no internet, and a single GPU. A 4B dense model is the largest class that quantizes cleanly to ~5GB Q4_K_M while preserving doctrinal accuracy.
+
+#### What we trained on
+
+| Corpus | Size | Source |
+|---|---|---|
+| FEMA NIMS doctrine (curated) | ~50,000 elements | Public-domain DHS PDFs decomposed into question/answer/cite tuples |
+| ICS field manuals + form specifications | ICS-201, -202, -204, -205, -213 templates and field semantics | FEMA EMI courses + ICS forms reference |
+| **te-nims-sft-merged-v4** | 380 hand-curated SFT pairs | Internal — tool-call normalized (search_doctrine, pin_map, get_scenario_info, toggle_map_layer) |
+| **te-nims-sft-oda-v1** | 20 ODA scenarios × 5 augmentations | Operational Decision Accuracy gold-standard scenarios (Moore EF5 + 4 historical incidents) |
+| After-action reports | Variable | Real disaster AARs reformatted as reasoning traces |
+
+Every training pair was reviewed by a NIMS-qualified subject matter expert (40 years operational EM experience). No web-scraped data; no synthetic-only corpus.
+
+#### How we trained it — three techniques, nine stages
+
+| Stage | Technique | Purpose |
+|---|---|---|
+| 1–3 | **SFT** (Supervised Fine-Tuning) | Warm-start on doctrine corpus + tool-call grammar. Teaches the model NIMS vocabulary, ICS form structure, and the agentic ReAct format. |
+| 3 | **RLVR** (Reinforcement Learning with Verifiable Rewards) | Reward signal from *verifiable* doctrinal correctness — does the response cite the right ICS form, the right NIMS Resource Type, the correct Unified Command structure? Verifier ran as Lean4-style unit tests, not human preference. |
+| 5, 9 | **GRPO** (Group Relative Policy Optimization) | Group-level reward optimization on top of the RLVR-aligned checkpoint. For each prompt, the model generates N candidates, the verifier scores them, GRPO updates toward the highest-ODA outputs. |
+
+The 9-stage chain alternates SFT (recipe refinement) and RL (alignment to operational accuracy) — each stage's checkpoint is the input to the next, with the verifier corpus expanding as we discover new failure modes.
+
+#### How we ran the training
+
+- **Phase 1 — Mac Studio MLX (exploration):** `mlx_lm.lora` against `mlx-community/gemma-4-e4b-it-4bit`. Fast 15-minute iterations, free, used to find the right hyperparameters and recipe. Loop: train → evaluate 5 Moore tornado scenarios → tune → repeat until ODA ≥ 0.80.
+- **Phase 2 — RunPod A100 + Unsloth (final run):** Once the recipe was locked, `train_sft_unsloth.py` on an A100 (~2× Studio throughput). Output safetensors → MLX fuse/dequantize → `convert_hf_to_gguf.py` → `llama-quantize Q4_K_M` → Ollama Modelfile.
+- **Telemetry:** Every run logged via MLflow (loss, KL, reward, eval scores) + DVC for artifact lineage. Both Mac Studio MLX and RunPod runs use the same `TrainingRun` wrapper for consistent provenance.
 
 **ODA Score: 0.916** on the 52-case TE NIMS internal benchmark (Operational Decision Accuracy — see `docs/ODA-BENCHMARK.md` for full methodology and honest limitations). This is a developing internal benchmark, not peer-reviewed.
 
@@ -52,7 +76,7 @@ The text deployment artifact is available as a 5.3GB Q4_K_M GGUF at [tmancino/te
 
 ### Agentic ReAct Loop
 
-![TE NIMS ReAct Agentic Loop](images/te-nims-react_loop.png)
+!(images/te-nims-react_loop.png)
 
 Every query passes through a multi-step **ReAct (Reason + Act)** loop before responding:
 
@@ -144,9 +168,7 @@ The live site includes a **19-step guided tutorial** that walks through every ca
 18. Odin data retrieval / Gold parquets
 19. Dedication and close
 
----
 
-![TE NIMS System Architecture](images/te-nims-architecture.png)
 
 ## Infrastructure
 
