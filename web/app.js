@@ -808,8 +808,8 @@ async function initEngine() {
   }
 
   ollamaBase = found.base;
-  setStatus("up", `${found.model} · Gemma 4 · ${found.base}`);
-  footerStat.textContent = `⎇ ${found.model} · Gemma 4 · offline`;
+  setStatus("up", `${found.model} · ${found.base}`);
+  footerStat.textContent = `⎇ ${found.model} · offline`;
   chatMeta.textContent = "ready";
   const micBtn = $("mic"), ttsBtn = $("tts");
   if (micBtn && (window.SpeechRecognition || window.webkitSpeechRecognition)) micBtn.disabled = false;
@@ -836,7 +836,7 @@ async function initEngine() {
           `<span style="opacity:.55">${c.detail}</span>`
         ).join("<br>")
       : `    ${dotHtml("ok")} <span style="color:var(--te-white)">severian-ollama   </span>` +
-        `<span style="opacity:.55">${found.model} · Gemma 4</span>`;
+        `<span style="opacity:.55">${found.model}</span>`;
 
     const model = statusData?.model ?? `TE NIMS`;
 
@@ -1418,8 +1418,8 @@ async function sendQuery(question, images = [], documents = []) {
       return;
     }
     ollamaBase = found.base;
-    setStatus("up", `${found.model} · Gemma 4 · ${found.base}`);
-    footerStat.textContent = `⎇ ${found.model} · Gemma 4 · offline`;
+    setStatus("up", `${found.model} · ${found.base}`);
+    footerStat.textContent = `⎇ ${found.model} · offline`;
     chatMeta.textContent = "ready";
   }
   appendUserMsg(question, images, documents);
@@ -2700,7 +2700,7 @@ function showWelcomeModal() {
       <div class="te-welcome-cols">
         <div class="te-welcome-desc">
           <p class="te-welcome-body">
-            TE NIMS is an agentic AI harness running a fine-tuned <strong>Gemma 4</strong> LLM built to support
+            TE NIMS is an agentic AI harness running a fine-tuned <strong>TE NIMS</strong> LLM built to support
             Incident Commanders with doctrine-grounded decision support, ICS form generation,
             geo-spatial awareness, and a demo provenance chain — fully offline, edge-deployable.
           </p>
