@@ -2897,6 +2897,11 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
       }});
     }}
 
+    // Session ID from the QR URL — appended to /upload-file so the file lands
+    // in the desktop's session even if iOS Safari blocked the JS cookie write.
+    const _UPLOAD_SID = "{sid}";
+    const _UPLOAD_URL = _UPLOAD_SID ? "/upload-file?s=" + encodeURIComponent(_UPLOAD_SID) : "/upload-file";
+
     async function upload(files) {{
       const status = document.getElementById("status");
       const err    = document.getElementById("error");
@@ -2904,7 +2909,7 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         const f = await normalizeForUpload(orig);
         status.textContent = "Uploading " + f.name + "…";
         const fd = new FormData(); fd.append("file", f);
-        const r = await fetch("/upload-file", {{method:"POST",body:fd}}).catch(e=>{{err.textContent=e.message;return null}});
+        const r = await fetch(_UPLOAD_URL, {{method:"POST",body:fd}}).catch(e=>{{err.textContent=e.message;return null}});
         if (!r || !r.ok) {{ err.textContent = "Upload failed"; continue; }}
         status.textContent = "✓ " + f.name + " uploaded successfully!";
       }}
@@ -2924,10 +2929,21 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
         """POST /upload-file — multipart file upload from the mobile QR page.
         Saves to a session-scoped uploads dir so the desktop app can poll and
         attach the file to the chat. Returns {"ok": true, "id": "<name>", "url": "..."}.
+
+        Mobile QR uploads pass ?s=<desktop_session_id> so the file lands in the
+        desktop's session dir even when iOS Safari blocks the JS cookie write.
         """
         import json as _json  # noqa: PLC0415
         import re as _re      # noqa: PLC0415
         import email          # noqa: PLC0415
+        from urllib.parse import urlparse as _urlparse, parse_qs as _parse_qs  # noqa: PLC0415
+        # If ?s=<sid> is provided, override the session for this request so
+        # mobile-QR uploads route to the desktop session that generated the QR.
+        qs = _parse_qs(_urlparse(self.path).query)
+        override_sid = (qs.get("s", [""])[0]).strip()
+        if override_sid and len(override_sid) == 36:
+            _session_local.session_id = override_sid
+            self._new_session = False  # don't overwrite mobile's cookie
         ct = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in ct:
             self.send_error(400, "expected multipart/form-data")
