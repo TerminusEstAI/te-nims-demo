@@ -26,6 +26,8 @@ All of this must happen in minutes, with no time for reference material, using t
 
 ---
 
+![TE NIMS in action — IC at the command post](images/te-nims-incident_scene.png)
+
 ## What TE NIMS Is
 
 TE NIMS is an **agentic AI harness** for the Incident Command Post. It runs a fine-tuned TE NIMS LLM (based on Gemma 4 E4B) that acts as a doctrine-grounded decision support agent for the IC. It is not a chatbot — it is a full agentic loop with tools, a provenance chain, voice I/O, and geo-spatial awareness.
@@ -46,9 +48,11 @@ The base model is Gemma 4 E4B (4B parameter dense edge model), fine-tuned throug
 
 **ODA Score: 0.916** on the 52-case TE NIMS internal benchmark (Operational Decision Accuracy — see `docs/ODA-BENCHMARK.md` for full methodology and honest limitations). This is a developing internal benchmark, not peer-reviewed.
 
-The model is available as a 5.3GB Q4_K_M GGUF at [tmancino/te-nims-e4b-stage9-gguf](https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf) and runs via Ollama with no cloud API calls.
+The text deployment artifact is available as a 5.3GB Q4_K_M GGUF at [tmancino/te-nims-e4b-stage9-gguf](https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf) and runs via Ollama with no cloud API calls. The corresponding Stage 9 adapter/training artifact lives at [tmancino/te-nims-e4b-stage9](https://huggingface.co/tmancino/te-nims-e4b-stage9).
 
 ### Agentic ReAct Loop
+
+![TE NIMS ReAct Agentic Loop](images/te-nims-react_loop.png)
 
 Every query passes through a multi-step **ReAct (Reason + Act)** loop before responding:
 
@@ -65,7 +69,19 @@ Available tools: `get_scenario_info`, `search_doctrine`, `pin_map_location`, `zo
 
 ### Gemma 4 Multimodal Vision
 
-The demo includes a **standalone llama-server sidecar** running `severian-vision` — a multimodal fine-tune with the Gemma 4 mmproj. ICs can:
+The demo includes a **standalone llama-server sidecar** running `severian-vision` — a multimodal fine-tune with the Gemma 4 mmproj. The runtime expects two deployable files:
+
+- `severian-vision-q4_k_m.gguf`
+- `mmproj-severian-vision.gguf`
+
+Published Hugging Face repos:
+
+- `tmancino/severian-vision-gguf`
+- `tmancino/severian-vision-mmproj`
+
+This makes the GCP deployment reproducible from public artifacts instead of relying on VM-local model files.
+
+ICs can:
 - Photograph hand-drawn org charts on whiteboards → model redraws to NIMS doctrine in ASCII or structured format
 - Upload field damage photos → model identifies building types and NIMS-relevant hazards
 - Scan QR code with any phone → images inject directly into the desktop IC session
@@ -96,7 +112,7 @@ The entire system runs on a single machine with no cloud API calls:
 - **Web Speech API** for push-to-talk voice input
 - **MBTiles** offline satellite tile cache (21MB, Moore/OKC metro)
 
-`docker compose up` pulls the model from HuggingFace on first boot and starts everything. No accounts, no API keys, no internet required after first run.
+`docker compose up` pulls the text deployment artifact from Hugging Face on first boot and starts everything. No accounts, no API keys, no internet required after first run.
 
 ### Sentence-Streaming TTS
 
@@ -130,6 +146,8 @@ The live site includes a **19-step guided tutorial** that walks through every ca
 
 ---
 
+![TE NIMS System Architecture](images/te-nims-architecture.png)
+
 ## Infrastructure
 
 | Component | Technology |
@@ -143,7 +161,7 @@ The live site includes a **19-step guided tutorial** that walks through every ca
 | Provenance | HMAC-SHA256 chain, JSONL server mirror, IndexedDB client |
 | TLS | Caddy (auto-cert) |
 | Process mgmt | supervisord with stopasgroup/killasgroup |
-| GPU | NVIDIA Tesla T4 (GCP n1-standard-4) |
+| GPU | NVIDIA L4 24GB (GCP g2-standard-4) |
 
 ---
 
@@ -158,6 +176,8 @@ docker compose up
 ```
 
 All dependencies are pinned. The model is public. The demo scenario data (Moore tornado) is bundled. A cold install on a machine with 8GB RAM and a CUDA GPU reaches the demo in under 10 minutes.
+
+For public artifact lineage, see `docs/HUGGINGFACE-ARTIFACTS.md` in the repo.
 
 ---
 
