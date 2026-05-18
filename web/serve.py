@@ -2852,86 +2852,80 @@ class TileHandler(http.server.SimpleHTTPRequestHandler):
     p{{color:#888;font-size:12px;margin-bottom:24px;text-align:center}}
     .btn{{display:block;width:100%;max-width:360px;background:#e8551a;border:none;
           border-radius:6px;color:#fff;cursor:pointer;font-size:16px;font-weight:700;
-          padding:16px;margin:8px 0;text-align:center}}
+          padding:16px;margin:8px 0;text-align:center;-webkit-appearance:none}}
     .btn-ghost{{background:transparent;border:2px solid #2a2a2c;color:#888}}
+    .btn:disabled{{opacity:0.4}}
     input[type=file]{{display:none}}
-    #status{{margin-top:20px;font-size:12px;color:#4caf50;text-align:center}}
-    #error{{margin-top:12px;font-size:12px;color:#e74c3c;text-align:center}}
+    #send-btn{{display:none}}
+    #preview{{margin:12px 0;max-width:200px;max-height:200px;border-radius:6px;display:none}}
+    #status{{margin-top:16px;font-size:13px;color:#4caf50;text-align:center;min-height:20px}}
+    #error{{margin-top:8px;font-size:12px;color:#e74c3c;text-align:center}}
   </style>
 </head>
 <body>
   <h1><span style="color:#e8551a">T</span><span style="color:#fff">E</span> NIMS</h1>
-  <p>Upload a photo or file to the active incident session.</p>
-  <label class="btn" for="camera">📷 Take Photo</label>
-  <input id="camera" type="file" accept="image/*" capture="environment">
-  <label class="btn btn-ghost" for="gallery">🖼 Choose from Gallery / Files</label>
-  <input id="gallery" type="file" accept="image/*,application/pdf,.json,.txt,.csv" multiple>
-  <div id="status"></div>
+  <p>Upload a photo or file to the active IC session.</p>
+  <label class="btn" for="file-input">📷 Take Photo / Choose File</label>
+  <input id="file-input" type="file" accept="image/*,application/pdf,.json,.txt,.csv" capture="environment">
+  <img id="preview">
+  <button id="send-btn" class="btn" style="margin-top:12px">⬆ Send to Severian</button>
+  <div id="status">Ready</div>
   <div id="error"></div>
   <script>
     {cookie_js}
-    // iPhone defaults to HEIC; llama.cpp's image decoder rejects it.
-    // Re-encode every non-mainstream image to JPEG via canvas. Safari
-    // on iOS can decode HEIC into an <img>, so the canvas captures the
-    // pixels and exports a JPEG the vision model can actually load.
-    async function normalizeForUpload(file) {{
-      if (/^image\\/(jpe?g|png|gif|webp|bmp)$/i.test(file.type)) return file;
-      if (!file.type.startsWith("image/") && !/\\.(heic|heif|avif)$/i.test(file.name)) return file;
-      return new Promise((resolve) => {{
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {{
-          const canvas = document.createElement("canvas");
-          canvas.width  = img.naturalWidth || 1920;
-          canvas.height = img.naturalHeight || 1080;
-          canvas.getContext("2d").drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          canvas.toBlob((blob) => {{
-            if (!blob) return resolve(file);
-            const renamed = file.name.replace(/\\.[^.]+$/, "") + ".jpg";
-            resolve(new File([blob], renamed, {{ type: "image/jpeg" }}));
-          }}, "image/jpeg", 0.92);
-        }};
-        img.onerror = () => {{ URL.revokeObjectURL(url); resolve(file); }};
-        img.src = url;
-      }});
-    }}
-
-    // Session ID from the QR URL — appended to /upload-file so the file lands
-    // in the desktop's session even if iOS Safari blocked the JS cookie write.
     const _UPLOAD_SID = "{sid}";
     const _UPLOAD_URL = _UPLOAD_SID ? "/upload-file?s=" + encodeURIComponent(_UPLOAD_SID) : "/upload-file";
 
-    async function upload(files) {{
-      const status = document.getElementById("status");
-      const err    = document.getElementById("error");
-      err.textContent = "";
-      if (!files || !files.length) {{ err.textContent = "No file selected"; return; }}
-      status.textContent = "Got " + files.length + " file(s), preparing…";
-      for (const orig of files) {{
+    const fileInput = document.getElementById("file-input");
+    const sendBtn   = document.getElementById("send-btn");
+    const preview   = document.getElementById("preview");
+    const status    = document.getElementById("status");
+    const errDiv    = document.getElementById("error");
+
+    let _pendingFiles = null;
+
+    // Wire both change and input events — iOS Safari sometimes fires one, sometimes the other
+    function onFilesChosen(files) {{
+      if (!files || !files.length) return;
+      _pendingFiles = files;
+      const f = files[0];
+      status.textContent = "Selected: " + (f.name || "photo") + " (" + Math.round((f.size||0)/1024) + " KB)";
+      errDiv.textContent = "";
+      // Show preview for images
+      if (f.type.startsWith("image/") || /\\.(heic|heif)$/i.test(f.name)) {{
+        const url = URL.createObjectURL(f);
+        preview.onload = () => {{ preview.style.display = "block"; URL.revokeObjectURL(url); }};
+        preview.src = url;
+      }}
+      sendBtn.style.display = "block";
+    }}
+
+    fileInput.addEventListener("change", () => onFilesChosen(fileInput.files));
+    fileInput.addEventListener("input",  () => onFilesChosen(fileInput.files));
+
+    sendBtn.addEventListener("click", async () => {{
+      const files = _pendingFiles || fileInput.files;
+      if (!files || !files.length) {{ errDiv.textContent = "No file selected"; return; }}
+      sendBtn.disabled = true;
+      errDiv.textContent = "";
+      for (const orig of Array.from(files)) {{
         try {{
-          status.textContent = "Preparing " + (orig.name || "photo") + " (" + Math.round((orig.size||0)/1024) + " KB)…";
-          // Try canvas-normalize with a 6-second budget; fall back to raw file
-          // so a flaky HEIC decode on iOS never strands the upload.
-          let f = orig;
-          if (!/^image\\/(jpe?g|png|gif|webp|bmp)$/i.test(orig.type)) {{
-            const norm = normalizeForUpload(orig);
-            const timeout = new Promise(res => setTimeout(() => res(orig), 6000));
-            f = await Promise.race([norm, timeout]);
-          }}
-          status.textContent = "Uploading " + (f.name || orig.name) + "…";
-          const fd = new FormData(); fd.append("file", f);
-          const r = await fetch(_UPLOAD_URL, {{method:"POST",body:fd}});
-          if (!r.ok) {{ err.textContent = "Upload failed: HTTP " + r.status; continue; }}
+          status.textContent = "Uploading " + (orig.name || "photo") + "…";
+          const fd = new FormData();
+          fd.append("file", orig);
+          const r = await fetch(_UPLOAD_URL, {{method:"POST", body:fd}});
+          if (!r.ok) {{ errDiv.textContent = "Upload failed: HTTP " + r.status; sendBtn.disabled=false; return; }}
           const j = await r.json().catch(() => ({{}}));
-          status.textContent = "✓ " + (j.id || f.name) + " uploaded successfully!";
-        }} catch (e) {{
-          err.textContent = "Error: " + (e && e.message ? e.message : e);
+          status.textContent = "✓ " + (j.id || orig.name) + " sent to Severian!";
+          preview.style.display = "none";
+          sendBtn.style.display = "none";
+          _pendingFiles = null;
+        }} catch(e) {{
+          errDiv.textContent = "Error: " + (e && e.message ? e.message : e);
         }}
       }}
-    }}
-    document.getElementById("camera").addEventListener("change",  e => upload(e.target.files));
-    document.getElementById("gallery").addEventListener("change", e => upload(e.target.files));
+      sendBtn.disabled = false;
+    }});
   </script>
 </body>
 </html>""".encode("utf-8")
