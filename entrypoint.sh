@@ -6,7 +6,7 @@ set -euo pipefail
 
 MODEL_DIR=/models
 GGUF="$MODEL_DIR/severian.gguf"
-TEXT_GGUF_URL="${TEXT_GGUF_URL:-https://huggingface.co/tmancino/te-nims-e4b-stage9-gguf/resolve/main/nims-e4b-stage9-q4_k_m.gguf}"
+TEXT_GGUF_URL="${TEXT_GGUF_URL:-https://huggingface.co/tmancino/te-nims-severian-gguf/resolve/main/severian-model.gguf}"
 VOICE_DIR="$HOME/.severian/voices"
 VOICE_ONNX="$VOICE_DIR/en_GB-alan-medium.onnx"
 VISION_URL="${SEVERIAN_VISION_URL:-}"
